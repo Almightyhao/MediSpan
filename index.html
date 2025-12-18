@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療數據智慧製圖工具 (Standalone)</title>
+    <title>醫療數據智慧製圖工具 (Standalone v21.4.3)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -12,7 +12,6 @@
     <style>
         body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f3f4f6; }
         
-        /* 圖表外框與工具列樣式 */
         .chart-wrapper { 
             position: relative; 
             margin-bottom: 2rem; 
@@ -22,6 +21,17 @@
             background: white; 
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
+
+        /* 甘特圖滾動容器：固定行距且防止縱軸拉長 */
+        .gantt-scroll-container {
+            width: 100%;
+            overflow-y: auto;
+            max-height: 600px; 
+            border: 1px solid #f3f4f6;
+            border-radius: 4px;
+            background: white;
+        }
+
         .chart-toolbar { 
             display: flex; 
             justify-content: flex-end; 
@@ -48,7 +58,6 @@
         }
         .chart-btn:hover { background: #2563eb; }
 
-        /* 輸入框樣式 */
         textarea.nowrap { 
             white-space: pre; 
             overflow-x: auto; 
@@ -60,7 +69,7 @@
 </head>
 <body class="p-4 md:p-8">
 
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-[1600px] mx-auto w-full">
         <header class="mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">醫療數據智慧製圖工具</h1>
@@ -71,7 +80,7 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             
             <div class="space-y-6">
                 
@@ -88,9 +97,9 @@
                     <textarea id="labDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none" 
                     placeholder="在此貼上 Lab 數據...
 範例：
-│項目   │1130│1201│
-│ALT    │    │11  │
-│WBC    │5.6 │9.8 │"></textarea>
+│項目    │1130│1201│
+│ALT     │    │11  │
+│WBC     │5.6 │9.8 │"></textarea>
                 </div>
 
                 <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500">
@@ -126,109 +135,54 @@ Tazocin 4.5g Q8H ... 12/02"></textarea>
     </div>
 
     <script>
-        // === 配置設定 ===
-        const CHART_COLORS = {
-            orange: 'rgb(249, 115, 22)', 
-            blue: 'rgb(59, 130, 246)', 
-            purple: 'rgb(168, 85, 247)',
-            red: 'rgb(239, 68, 68)', 
-            teal: 'rgb(20, 184, 166)', 
-            gray: 'rgb(107, 114, 128)'
-        };
+        const CHART_COLORS = { orange: 'rgb(249, 115, 22)', blue: 'rgb(59, 130, 246)', purple: 'rgb(168, 85, 247)', red: 'rgb(239, 68, 68)', teal: 'rgb(20, 184, 166)', gray: 'rgb(107, 114, 128)' };
 
-        // 自動分群設定 (可自行擴充)
         const LAB_GROUPS = [
             { name: '肝功能 (Liver)', keys: ['AST', 'GOT', 'ALT', 'GPT'], colors: [CHART_COLORS.orange, CHART_COLORS.red], type: 'normal' },
             { name: '發炎指標 (Infection)', keys: ['WBC', 'CRP', 'PCT', 'NEUTROPHIL', 'SEG'], colors: [CHART_COLORS.blue, CHART_COLORS.purple, CHART_COLORS.teal], type: 'dual', leftKeys: ['WBC'], rightKeys: ['CRP', 'PCT'] },
             { name: '腎功能 (Renal)', keys: ['SCR', 'CREA', 'BUN'], colors: [CHART_COLORS.red, CHART_COLORS.blue], type: 'dual', leftKeys: ['BUN'], rightKeys: ['SCR', 'CREA'] },
             { name: '電解質 (Electrolytes)', keys: ['NA', 'K', 'CL', 'CA', 'MG', 'P'], colors: [CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple], type: 'normal' },
-            { name: '貧血 (Hb/Hct)', keys: ['HB', 'HGB', 'HCT', 'MCV'], colors: [CHART_COLORS.gray, CHART_COLORS.red], type: 'dual', leftKeys: ['HCT', 'MCV'], rightKeys: ['HB'] },
             { name: '血糖 (Glucose)', keys: ['GLU', 'GLUCOSE', 'AC', 'PC'], colors: [CHART_COLORS.orange], type: 'normal' }
         ];
 
         let activeCharts = [];
 
-        // === 工具函式 ===
-
-        // 日期解析器：支援 YYYY/MM/DD, MM/DD, 1130 等格式
         function parseChartDate(str) {
             if (!str) return null;
-            // 處理純數字格式 (如 1130)
-            if (/^\d{4}$/.test(str)) { 
-                const m = parseInt(str.substring(0, 2)) - 1;
-                const d = parseInt(str.substring(2, 4));
-                const date = new Date(new Date().getFullYear(), m, d);
-                // 簡易跨年邏輯：若當前是1-3月，但數據是10-12月，視為去年
-                if (new Date().getMonth() < 3 && m > 9) date.setFullYear(date.getFullYear() - 1);
-                return date;
+            const match = str.match(/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+            if (!match) {
+                if (/^\d{4}$/.test(str)) {
+                    const m = parseInt(str.substring(0, 2)) - 1;
+                    const d = parseInt(str.substring(2, 4));
+                    return new Date(new Date().getFullYear(), m, d);
+                }
+                return null;
             }
-            const parts = str.split(/[\/-]/);
-            if (parts.length < 2) return null;
-            
-            let y = new Date().getFullYear();
-            let m = parseInt(parts[0]) - 1;
-            let d = parseInt(parts[1]);
-
-            if (parts.length === 3) { 
-                y = parseInt(parts[0]); 
-                if(y < 200) y += 1911; // 民國年轉西元
-                m = parseInt(parts[1]) - 1; 
-                d = parseInt(parts[2]); 
-            }
-            return new Date(y, m, d);
+            const y = new Date().getFullYear();
+            const m = parseInt(match[1]) - 1;
+            const d = parseInt(match[2]);
+            const hour = match[3] ? parseInt(match[3]) : 0;
+            const min = match[4] ? parseInt(match[4]) : 0;
+            return new Date(y, m, d, hour, min);
         }
 
-        // 下載圖表功能
-        window.downloadChart = function(canvasId, filename) {
-            const canvas = document.getElementById(canvasId);
-            if (!canvas) return;
-            const link = document.createElement('a');
-            link.download = filename;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        }
-
-        // 清空功能
-        window.clearAll = function() {
-            if(confirm("確定要清空所有輸入框嗎？")) {
-                document.getElementById('labDataInput').value = "";
-                document.getElementById('medDataInput').value = "";
-                renderAll();
-            }
-        }
-
-        // === 解析邏輯 ===
-
-        // Lab 解析 (支援表格)
         function parseLab(text) {
             const lab = {};
             const lines = text.split('\n').filter(l => l.trim());
             const isTable = lines.some(l => l.includes('│') || l.includes('|'));
-
             if (isTable) {
-                // 表格模式解析
                 let headers = [], indices = [];
-                // 尋找包含日期的標題行
                 const headerIdx = lines.findIndex(l => /\d{3,4}/.test(l) && (l.includes('│')||l.includes('|')));
-                
                 if (headerIdx > -1) {
-                    // 解析標題日期
                     lines[headerIdx].split(/[│|]/).forEach((s, i) => {
-                        if (/\d{3,4}/.test(s.trim())) { 
-                            headers.push(parseChartDate(s.trim())); 
-                            indices.push(i); 
-                        }
+                        if (/\d{3,4}/.test(s.trim())) { headers.push(parseChartDate(s.trim())); indices.push(i); }
                     });
-                    
-                    // 解析數據行
                     for (let i = headerIdx + 1; i < lines.length; i++) {
                         const parts = lines[i].split(/[│|]/);
-                        const name = (parts[0]||parts[1]||"").trim(); // 嘗試抓取名稱
+                        const name = (parts[0]||parts[1]||"").trim();
                         if (!name || name.includes('項目') || name.includes('單位')) continue;
-                        
                         const key = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
                         if (!lab[key]) lab[key] = { label: name, data: [] };
-                        
                         indices.forEach((colIdx, k) => {
                             const valStr = (parts[colIdx]||"").trim();
                             if(valStr) {
@@ -239,16 +193,14 @@ Tazocin 4.5g Q8H ... 12/02"></textarea>
                     }
                 }
             } else {
-                // 一般文字模式 (Key: Value(Date))
-                const regex = /(\d+(?:\.\d+)?)\s*.*?\s*\(?([\d\.\/-]+)\)?/g;
+                const regex = /(\d+(?:\.\d+)?)\s*.*?\s*\(?([\d\.\/-]+(?:\s+\d+:\d+)?)\)?/g;
                 lines.forEach(l => {
                     if (!l.includes(':') && !l.includes('：')) return;
                     const parts = l.split(/[:：]/);
                     const name = parts[0].trim();
                     const key = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
                     if (!lab[key]) lab[key] = { label: name, data: [] };
-                    let m;
-                    while ((m = regex.exec(parts[1])) !== null) {
+                    let m; while ((m = regex.exec(parts[1])) !== null) {
                         const d = parseChartDate(m[2]);
                         if(d) lab[key].data.push({ x: d, y: parseFloat(m[1]) });
                     }
@@ -257,248 +209,107 @@ Tazocin 4.5g Q8H ... 12/02"></textarea>
             return lab;
         }
 
-        // Med 解析 (支援劑量頻次)
         function parseMed(text) {
             const meds = { labels: [], data: [], colors: [] };
             const lines = text.split('\n').filter(l => l.trim());
-            let cIdx = 0;
             const colors = Object.values(CHART_COLORS);
-            // 抓取行尾日期的 Regex
-            const dateRegex = /(\d{2}\/\d{2})(?:\s+\d{2}:\d{2})?(?:\s+(\d{2}\/\d{2}))?.*$/;
-
+            const dateRegex = /(\d{1,2}\/\d{1,2}(?:\s+\d{1,2}:\d{2})?)/g;
+            
+            let globalMaxDate = new Date(0);
             lines.forEach(l => {
-                let name = "", dose = "", freq = "", start, end;
-                const dateMatch = l.match(dateRegex);
-                
-                if (dateMatch) {
-                    start = parseChartDate(dateMatch[1]);
-                    if (dateMatch[2]) { end = parseChartDate(dateMatch[2]); } 
-                    else { end = new Date(start.getTime() + 86400000 * 3); } // 預設三天
-                    
-                    // 解析藥名部分
-                    let contentPart = l.substring(0, dateMatch.index).trim();
-                    const parts = contentPart.split(/\s+/);
-                    let nameParts = [];
-                    for(let p of parts) {
-                        if (nameParts.length < 2) { nameParts.push(p); } // 取前兩個字當藥名
-                        else if (/^\d+(?:\.\d+)?(mg|ml|u|g|mcg|iu)?$/i.test(p) && !dose) { dose = p; } 
-                        else if (/^(q|bid|tid|hs|prn)/i.test(p) && !freq) { freq = p; }
-                    }
-                    name = nameParts.join(' ');
-                }
+                const found = l.match(dateRegex);
+                if (found) found.forEach(dStr => {
+                    const d = parseChartDate(dStr);
+                    if (d && d > globalMaxDate) globalMaxDate = d;
+                });
+            });
+            if (globalMaxDate.getTime() === 0) globalMaxDate = new Date();
 
-                if (name && start && end) {
-                    if (end < start) end.setFullYear(end.getFullYear() + 1); // 跨年修正
-                    end.setDate(end.getDate() + 1); // 補滿當天
-                    
-                    let label = name;
-                    if (dose) label += ` ${dose}`;
-                    if (freq) label += ` ${freq}`;
-                    
-                    meds.labels.push(label);
-                    meds.data.push([start.getTime(), end.getTime()]);
-                    meds.colors.push(colors[cIdx++ % colors.length]);
+            let cIdx = 0;
+            lines.forEach(l => {
+                const datesFound = l.match(dateRegex);
+                if (datesFound) {
+                    let start = parseChartDate(datesFound[0]);
+                    let end = datesFound.length > 1 ? parseChartDate(datesFound[1]) : new Date(globalMaxDate);
+                    const firstDateIdx = l.search(dateRegex);
+                    let label = l.substring(0, firstDateIdx).trim().split(/\s{2,}/)[0];
+
+                    if (start && end) {
+                        meds.labels.push(label);
+                        meds.data.push([start.getTime(), end.getTime()]);
+                        meds.colors.push(colors[cIdx++ % colors.length]);
+                    }
                 }
             });
             return meds;
         }
 
-        // === 繪圖核心 ===
-
         function renderAll() {
-            // 清理舊圖表
             document.getElementById('chartsOutput').innerHTML = '';
             activeCharts.forEach(c => c.destroy());
             activeCharts = [];
-
             const labText = document.getElementById('labDataInput').value;
             const medText = document.getElementById('medDataInput').value;
-
             if (!labText && !medText) {
-                document.getElementById('chartsOutput').innerHTML = `
-                    <div id="emptyState" class="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 rounded-xl p-10 min-h-[400px]">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                        </svg>
-                        <p class="text-lg">圖表預覽區域</p>
-                        <p class="text-sm mt-2">請在左側貼上資料，圖表將自動產生。</p>
-                    </div>`;
+                document.getElementById('chartsOutput').innerHTML = `<div id="emptyState" class="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 rounded-xl p-10 min-h-[400px]"><p class="text-lg">圖表預覽區域</p></div>`;
                 return;
             }
-
-            // 1. 繪製 Lab Charts
             if (labText) {
                 const labData = parseLab(labText);
                 const processed = new Set();
-                
-                // 優先處理分群
                 LAB_GROUPS.forEach(g => {
                     const keys = Object.keys(labData).filter(k => g.keys.some(gk => k.includes(gk)) && labData[k].data.length > 0);
-                    if (keys.length > 0) {
-                        createLabChart(g.name, keys, labData, g, processed);
-                    }
+                    if (keys.length > 0) createLabChart(g.name, keys, labData, g, processed);
                 });
-
-                // 處理剩下的 (未分群)
                 Object.keys(labData).forEach(key => {
-                    if (!processed.has(key) && labData[key].data.length > 1) {
-                        createLabChart(labData[key].label, [key], labData, { colors: [CHART_COLORS.gray], type: 'normal' }, processed);
-                    }
+                    if (!processed.has(key) && labData[key].data.length > 1) createLabChart(labData[key].label, [key], labData, { colors: [CHART_COLORS.gray], type: 'normal' }, processed);
                 });
             }
-
-            // 2. 繪製 Gantt Chart
             if (medText) {
                 const medData = parseMed(medText);
-                if (medData.data.length > 0) {
-                    createGanttChart(medData);
-                }
+                if (medData.data.length > 0) createGanttChart(medData);
             }
         }
 
         function createLabChart(title, keys, labData, groupConfig, processedSet) {
             const wrapper = document.createElement('div');
             wrapper.className = 'chart-wrapper';
-            
-            const toolbar = document.createElement('div');
-            toolbar.className = 'chart-toolbar';
-            
-            const titleEl = document.createElement('h3');
-            titleEl.className = 'chart-title';
-            titleEl.innerText = title;
-            
-            const btn = document.createElement('button');
-            btn.className = 'chart-btn';
-            btn.innerText = '📥 下載圖表';
             const canvasId = `chart_${Math.random().toString(36).substr(2, 9)}`;
-            btn.onclick = () => downloadChart(canvasId, `${title}.png`);
-            
-            toolbar.appendChild(titleEl);
-            toolbar.appendChild(btn);
-            wrapper.appendChild(toolbar);
-
-            const canvas = document.createElement('canvas');
-            canvas.id = canvasId;
-            canvas.style.maxHeight = '300px';
-            wrapper.appendChild(canvas);
-            
+            wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">${title}</h3><button class="chart-btn" onclick="downloadChart('${canvasId}', '${title}.png')">📥 下載</button></div><canvas id="${canvasId}" style="max-height:300px;"></canvas>`;
             document.getElementById('chartsOutput').appendChild(wrapper);
-
             const datasets = keys.map((k, i) => {
                 processedSet.add(k);
-                const d = labData[k];
-                d.data.sort((a,b) => a.x - b.x);
-                return {
-                    label: d.label,
-                    data: d.data,
-                    borderColor: groupConfig.colors[i % groupConfig.colors.length],
-                    backgroundColor: groupConfig.colors[i % groupConfig.colors.length],
-                    yAxisID: (groupConfig.type === 'dual' && groupConfig.rightKeys?.some(rk => k.includes(rk))) ? 'y1' : 'y',
-                    tension: 0.3,
-                    borderWidth: 2,
-                    pointRadius: 4
-                };
+                const d = labData[k]; d.data.sort((a,b) => a.x - b.x);
+                return { label: d.label, data: d.data, borderColor: groupConfig.colors[i % groupConfig.colors.length], backgroundColor: groupConfig.colors[i % groupConfig.colors.length], yAxisID: (groupConfig.type === 'dual' && groupConfig.rightKeys?.some(rk => k.includes(rk))) ? 'y1' : 'y', tension: 0.3, pointRadius: 4 };
             });
-
-            const chart = new Chart(canvas.getContext('2d'), {
-                type: 'line',
-                data: { datasets },
-                options: {
-                    responsive: true,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { position: 'top' } },
-                    scales: {
-                        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } } },
-                        y: { display: true, position: 'left' },
-                        ...(groupConfig.type === 'dual' ? { y1: { display: true, position: 'right', grid: { drawOnChartArea: false } } } : {})
-                    }
-                }
-            });
-            activeCharts.push(chart);
+            activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), { type: 'line', data: { datasets }, options: { scales: { x: { type: 'time', time: { unit: 'day' } }, y: { position: 'left' }, ...(groupConfig.type === 'dual' ? { y1: { position: 'right', grid: { drawOnChartArea: false } } } : {}) } } }));
         }
 
         function createGanttChart(medData) {
             const wrapper = document.createElement('div');
             wrapper.className = 'chart-wrapper';
-            
-            const toolbar = document.createElement('div');
-            toolbar.className = 'chart-toolbar';
-            toolbar.innerHTML = `<h3 class="chart-title">用藥甘特圖</h3>`;
-            
-            const btn = document.createElement('button');
-            btn.className = 'chart-btn';
-            btn.innerText = '📥 下載圖表';
             const canvasId = `chart_gantt_${Math.random().toString(36).substr(2, 9)}`;
-            btn.onclick = () => downloadChart(canvasId, 'medication_gantt.png');
-            
-            toolbar.appendChild(btn);
-            wrapper.appendChild(toolbar);
-
-            const canvas = document.createElement('canvas');
-            canvas.id = canvasId;
-            
-            // 動態高度計算
-            const rowHeight = 45; 
-            const chartHeight = Math.max(300, (medData.labels.length * rowHeight) + 100);
-            canvas.style.height = `${chartHeight}px`;
-            
-            wrapper.appendChild(canvas);
+            const rowHeight = 40;
+            const chartHeight = (medData.labels.length * rowHeight) + 60;
+            wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">用藥甘特圖</h3><button class="chart-btn" onclick="downloadChart('${canvasId}', 'gantt.png')">📥 下載</button></div><div class="gantt-scroll-container"><canvas id="${canvasId}" style="height: ${chartHeight}px; width: 100%;"></canvas></div>`;
             document.getElementById('chartsOutput').appendChild(wrapper);
-
-            const chartData = medData.labels.map((l, i) => ({ 
-                x: [medData.data[i][0], medData.data[i][1]], 
-                y: l 
-            }));
-
-            // Fix Time Axis
             const allDates = medData.data.flat();
-            const minDate = Math.min(...allDates) - 86400000; 
-            const maxDate = Math.max(...allDates) + 86400000;
-
-            const chart = new Chart(canvas.getContext('2d'), {
+            activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: medData.labels,
-                    datasets: [{ 
-                        label: 'Medications',
-                        data: chartData, 
-                        backgroundColor: medData.colors, 
-                        barPercentage: 0.5, 
-                        borderRadius: 4, 
-                        borderSkipped: false 
-                    }]
+                    datasets: [{ data: medData.labels.map((l, i) => ({ x: [medData.data[i][0], medData.data[i][1]], y: l })), backgroundColor: medData.colors, maxBarThickness: 25, barPercentage: 0.8, borderRadius: 4 }]
                 },
-                options: {
-                    indexAxis: 'y', 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { 
-                        x: { 
-                            type: 'time', 
-                            min: minDate,
-                            max: maxDate,
-                            time: { unit: 'day', displayFormats: { day: 'MM/dd' } }
-                        }, 
-                        y: { 
-                            ticks: { autoSkip: false, font: { size: 11, family: 'monospace', weight: 'bold' } } 
-                        } 
-                    }
-                }
-            });
-            activeCharts.push(chart);
+                options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { type: 'time', min: Math.min(...allDates)-86400000, max: Math.max(...allDates)+86400000, time: { unit: 'day', displayFormats: { day: 'MM/dd' } } }, y: { ticks: { autoSkip: false, font: { weight: 'bold' } } } } }
+            }));
         }
 
-        // === 初始化與監聽 ===
-        let debounceTimer;
-        function debouncedRender() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(renderAll, 600);
-        }
-
-        document.getElementById('labDataInput').addEventListener('input', debouncedRender);
-        document.getElementById('medDataInput').addEventListener('input', debouncedRender);
-
+        window.downloadChart = (id, name) => { const c = document.getElementById(id); const a = document.createElement('a'); a.download = name; a.href = c.toDataURL(); a.click(); };
+        window.clearAll = () => { if(confirm("清空內容？")) { document.getElementById('labDataInput').value = ""; document.getElementById('medDataInput').value = ""; renderAll(); } };
+        let timer;
+        const debounced = () => { clearTimeout(timer); timer = setTimeout(renderAll, 600); };
+        document.getElementById('labDataInput').addEventListener('input', debounced);
+        document.getElementById('medDataInput').addEventListener('input', debounced);
     </script>
 </body>
 </html>
