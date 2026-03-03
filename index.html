@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療數據智慧製圖工具 (Standalone v22.6.0)</title>
+    <title>醫療數據智慧製圖工具 (Standalone v22.7.0)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -39,7 +39,7 @@
                     <label class="block text-lg font-bold text-gray-700 mb-2 flex justify-between">1. 檢驗數據 (Lab Data)</label>
                     <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
                         <strong>自動綁定群組：</strong>含 Hb (g/dL), CRP, Na/K 等指標。<br>
-                        * 支援包含單位的複製貼上，同日多筆將繪製標準差 (Error Bar)。
+                        * 支援包含單位的複製貼上，同日多筆將繪製標準差 (Error Bar)。橫軸時間刻度自動隱藏時間，僅顯示日期。
                     </div>
                     <textarea id="labDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="在此貼上 Lab 數據..."></textarea>
                 </div>
@@ -210,15 +210,11 @@
                 const labData = parseLab(labText);
                 const processed = new Set();
                 
-                // 升級版智慧匹配：完美包容「單位字尾」，如 Hb (g/dL) -> HBGDL
                 const matchKey = (k, gk) => { 
                     if (k === gk) return true; 
                     if (gk.length >= 3 && k.includes(gk)) return true; 
-                    
-                    // 針對 1~2 字母縮寫，允許後面跟隨常見單位
                     const unitSuffixes = ['GDL', 'MGDL', 'MEQL', 'MEQ', 'UL', 'MMOL', 'MMOLL', 'U', 'IU', 'SEC'];
                     if (unitSuffixes.some(u => k === gk + u)) return true;
-                    
                     return false; 
                 };
 
@@ -320,7 +316,8 @@
                         }
                     },
                     scales: { 
-                        x: { type: 'time', time: { unit: 'day' } }, 
+                        // Lab 圖表橫軸強制只顯示日期
+                        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } } }, 
                         y: { position: 'left' }, 
                         ...(groupConfig.type === 'dual' ? { y1: { position: 'right', grid: { drawOnChartArea: false } } } : {}) 
                     } 
@@ -409,7 +406,8 @@
                 options: { 
                     indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } }, 
                     scales: { 
-                        x: { type: 'time', min: minDate - 86400000, max: maxDate + 86400000, time: { unit: 'day', displayFormats: { day: 'MM/dd HH:mm' } } }, 
+                        // 甘特圖橫軸強制只顯示日期 (不顯示 HH:mm)
+                        x: { type: 'time', min: minDate - 86400000, max: maxDate + 86400000, time: { unit: 'day', displayFormats: { day: 'MM/dd' } } }, 
                         y: { ticks: { autoSkip: false, font: { weight: 'bold' } } } 
                     } 
                 }
