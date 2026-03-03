@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療數據智慧製圖工具 (Standalone v22.2.0)</title>
+    <title>醫療數據智慧製圖工具 (Standalone v22.3.0)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -72,7 +72,7 @@
         <header class="mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">醫療數據智慧製圖工具</h1>
-                <p class="text-gray-500 mt-1">支援原始表格解析・自動分群趨勢圖・動態用藥甘特圖・誤差線繪製</p>
+                <p class="text-gray-500 mt-1">支援原始表格解析・精準指標綁定・SD誤差線・動態用藥甘特圖</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <button onclick="clearAll()" class="text-sm text-red-500 hover:text-red-700 font-medium underline">清空所有內容</button>
@@ -89,14 +89,12 @@
                         <span class="text-xs font-normal text-gray-400 self-end">支援表格與文字</span>
                     </label>
                     <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
-                        <strong>支援格式：</strong><br>
-                        1. 原始表格：含 <code>│</code> 或 <code>|</code> 的直式/橫式表格<br>
-                        2. 文字模式：<code>ALT: 40(10/1), 55(10/2)</code><br>
-                        * <strong>同日多筆數據將自動計算平均值，並繪製標準差 (Error Bar)</strong>。
+                        <strong>自動綁定群組：</strong>肝/腎/感染/電解質/血液/心臟/凝血<br>
+                        * <strong>同日多筆數據將自動計算平均值，並繪製標準差 (Error Bar)</strong>。已歸類項目 (如 CRP, Albumin) 具備互斥保護，不重複顯示。
                     </div>
                     <textarea id="labDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none" 
                     placeholder="在此貼上 Lab 數據...
-範例：(同日多筆將繪製 Error Bar)
+範例 (同日多筆將繪製 Error Bar)：
 GLUCOSE: 120(10/1 08:00), 180(10/1 12:00), 110(10/1 18:00)
 GLUCOSE: 105(10/2)"></textarea>
                 </div>
@@ -107,14 +105,16 @@ GLUCOSE: 105(10/2)"></textarea>
                         <span class="text-xs font-normal text-gray-400 self-end">支援清單與區間</span>
                     </label>
                     <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
-                        <strong>支援格式：</strong><br>
-                        同品項若有不同劑量/頻次（如 <code>1#Q6H</code>），將自動繪製於同一行，並標註用法於條狀圖內。
+                        <strong>自動疊加機制：</strong><br>
+                        同品項若有不同劑量/頻次（如 <code>2#Q6H</code>, <code>1#STAT</code>），將自動合併於同一橫列，並於圖表內部標示用法。
                     </div>
                     <textarea id="medDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-shadow outline-none" 
                     placeholder="在此貼上用藥清單...
 範例：
 AMPOLIN INJ 500 MG 2#Q6H 10/22 10/24
-AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
+AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27
+KCL_POTASSIUM 2#STAT 10/25
+KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
                 </div>
             </div>
 
@@ -135,16 +135,16 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
     <script>
         const CHART_COLORS = { orange: 'rgb(249, 115, 22)', blue: 'rgb(59, 130, 246)', purple: 'rgb(168, 85, 247)', red: 'rgb(239, 68, 68)', teal: 'rgb(20, 184, 166)', gray: 'rgb(107, 114, 128)' };
 
-        // 定義的嚴謹指標群組 (互斥機制與新增類別)
+        // 嚴格定義的指標綁定群組 (互斥機制與精確匹配)
         const LAB_GROUPS = [
-            { name: '肝功能 (Liver)', keys: ['AST', 'GOT', 'ALT', 'GPT'], colors: [CHART_COLORS.orange, CHART_COLORS.red], type: 'normal' },
-            { name: '發炎指標 (Infection)', keys: ['WBC', 'CRP', 'PCT', 'NEUTROPHIL', 'SEG'], colors: [CHART_COLORS.blue, CHART_COLORS.purple, CHART_COLORS.teal], type: 'dual', leftKeys: ['WBC'], rightKeys: ['CRP', 'PCT'] },
-            { name: '腎功能 (Renal)', keys: ['SCR', 'CREA', 'BUN'], colors: [CHART_COLORS.red, CHART_COLORS.blue, CHART_COLORS.orange], type: 'dual', leftKeys: ['BUN'], rightKeys: ['SCR', 'CREA'] },
-            { name: '電解質 (Electrolytes)', keys: ['NA', 'K', 'CL', 'CA'], colors: [CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.gray], type: 'normal' },
+            { name: '肝功能 (Liver)', keys: ['AST', 'GOT', 'ALT', 'GPT', 'ALBUMIN', 'BILIRUBINTOTAL', 'BILIRUBIN', 'TBIL'], colors: [CHART_COLORS.orange, CHART_COLORS.red, CHART_COLORS.teal, CHART_COLORS.purple], type: 'dual', leftKeys: ['AST', 'GOT', 'ALT', 'GPT'], rightKeys: ['ALBUMIN', 'BILIRUBINTOTAL', 'BILIRUBIN', 'TBIL'] },
+            { name: '腎功能 (Renal)', keys: ['CREATININE', 'CREA', 'SCR', 'BUN'], colors: [CHART_COLORS.red, CHART_COLORS.blue], type: 'dual', leftKeys: ['BUN'], rightKeys: ['CREATININE', 'CREA', 'SCR'] },
+            { name: '發炎指標 (Infection)', keys: ['WBC', 'CRP', 'NEUTROPHIL', 'SEG', 'PCT'], colors: [CHART_COLORS.blue, CHART_COLORS.purple, CHART_COLORS.teal], type: 'dual', leftKeys: ['WBC', 'NEUTROPHIL', 'SEG'], rightKeys: ['CRP', 'PCT'] },
+            { name: '電解質 (Electrolytes)', keys: ['NA', 'SODIUM', 'K', 'POTASSIUM', 'CL', 'CHLORIDE', 'CA', 'CALCIUM'], colors: [CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.gray], type: 'normal' },
             { name: '血糖 (Glucose)', keys: ['GLU', 'GLUCOSE', 'AC', 'PC'], colors: [CHART_COLORS.orange], type: 'normal' },
-            { name: '血液 (Blood)', keys: ['EOSINOPHIL', 'LYMPHOCYTE', 'MCH', 'PLT', 'HCT', 'HB', 'MCHC', 'MCV', 'RBC', 'ALBUMIN'], colors: [CHART_COLORS.red, CHART_COLORS.blue, CHART_COLORS.gray, CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple], type: 'normal' },
+            { name: '血液 (Blood)', keys: ['EOSINOPHIL', 'LYMPHOCYTE', 'MCH', 'PLT', 'HCT', 'HB', 'HEMOGLOBIN', 'MCHC', 'MCV', 'RBC'], colors: [CHART_COLORS.red, CHART_COLORS.blue, CHART_COLORS.gray, CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, CHART_COLORS.blue, CHART_COLORS.gray], type: 'normal' },
             { name: '心臟指標 (Cardiac)', keys: ['PROBNP', 'TROPONIN', 'TROPONINI'], colors: [CHART_COLORS.red, CHART_COLORS.blue], type: 'normal' },
-            { name: '凝血指標 (Coagulation)', keys: ['APTT', 'INR'], colors: [CHART_COLORS.purple, CHART_COLORS.teal], type: 'normal' }
+            { name: '凝血指標 (Coagulation)', keys: ['APTT', 'INR', 'PT'], colors: [CHART_COLORS.purple, CHART_COLORS.teal], type: 'normal' }
         ];
 
         let activeCharts = [];
@@ -210,13 +210,13 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
                 });
             }
 
-            // 同日數據：取平均與標準差
+            // 同日數據處理：取平均與標準差 (SD)
             Object.keys(lab).forEach(key => {
                 const dataPoints = lab[key].data;
                 const dailyGroups = {};
                 dataPoints.forEach(pt => {
                     const d = new Date(pt.x);
-                    d.setHours(0, 0, 0, 0); // 將時間歸一化至當日凌晨
+                    d.setHours(0, 0, 0, 0); // 歸一化至當日凌晨
                     const timeKey = d.getTime();
                     if (!dailyGroups[timeKey]) dailyGroups[timeKey] = [];
                     dailyGroups[timeKey].push(pt.y);
@@ -270,10 +270,10 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
                     const firstDateIdx = l.search(dateRegex);
                     let rawLabel = l.substring(0, firstDateIdx).trim();
 
-                    // 分離藥物名稱與頻次/劑量
+                    // 分離藥物名稱與頻次/劑量 (例如：AMPOLIN 2#Q6H -> AMPOLIN & 2#Q6H)
                     let dosage = "";
                     let drugName = rawLabel;
-                    const dosageMatch = rawLabel.match(/(.*?)\s+(\d+(?:\.\d+)?#.*|Q\d+H|QD|BID|TID|QID|STAT|PRN|QOD|HS)\s*$/i);
+                    const dosageMatch = rawLabel.match(/(.*?)\s+(\d+(?:\.\d+)?#.*?|Q\d+H.*?|QD.*?|BID.*?|TID.*?|QID.*?|STAT.*?|PRN.*?|QOD.*?|HS.*?)$/i);
                     
                     if (dosageMatch) {
                         drugName = dosageMatch[1].trim();
@@ -308,9 +308,14 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
 
             if (labText) {
                 const labData = parseLab(labText);
-                const processed = new Set();
+                const processed = new Set(); // 核心：追蹤已分類的項目，避免重複
                 
-                const matchKey = (k, gk) => k === gk || k.startsWith(gk + '_');
+                // 智慧字串匹配：精確比對，或當目標字眼大於等於3字元時允許包含 (例如 POTASSIUM 包含於 KCL_POTASSIUM)
+                const matchKey = (k, gk) => {
+                    if (k === gk) return true;
+                    if (gk.length >= 3 && k.includes(gk)) return true;
+                    return false;
+                };
 
                 LAB_GROUPS.forEach(g => {
                     const keys = Object.keys(labData).filter(k => 
@@ -320,11 +325,12 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
                     );
                     
                     if (keys.length > 0) {
-                        keys.forEach(k => processed.add(k)); 
+                        keys.forEach(k => processed.add(k)); // 綁定後加入已處理清單，達成互斥
                         createLabChart(g.name, keys, labData, g);
                     }
                 });
 
+                // 將未被上述嚴格規則抓到的其他數據，獨立成單一圖表
                 Object.keys(labData).forEach(key => {
                     if (!processed.has(key) && labData[key].data.length > 1) {
                         createLabChart(labData[key].label, [key], labData, { colors: [CHART_COLORS.gray], type: 'normal' });
@@ -338,7 +344,7 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
             }
         }
 
-        // 自定義 Plugin：為折線圖繪製標準差 Error Bars
+        // 自定義 Plugin：繪製標準差 Error Bars
         const drawErrorBarsPlugin = {
             id: 'errorBars',
             afterDatasetsDraw(chart) {
@@ -351,7 +357,7 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
                             if (dataPoint.sd && dataPoint.sd > 0) {
                                 const yAxis = chart.scales[meta.yAxisID];
                                 const x = element.x;
-                                // 限制誤差線不超出 Y 軸的最大/最小值視覺範圍
+                                
                                 const yTopValue = dataPoint.y + dataPoint.sd;
                                 const yBottomValue = dataPoint.y - dataPoint.sd;
                                 
@@ -362,10 +368,8 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
                                 ctx.beginPath();
                                 ctx.moveTo(x, yTop);
                                 ctx.lineTo(x, yBottom);
-                                // 頂部橫線
                                 ctx.moveTo(x - 4, yTop);
                                 ctx.lineTo(x + 4, yTop);
-                                // 底部橫線
                                 ctx.moveTo(x - 4, yBottom);
                                 ctx.lineTo(x + 4, yBottom);
                                 
@@ -403,7 +407,7 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
             activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), { 
                 type: 'line', 
                 data: { datasets }, 
-                plugins: [drawErrorBarsPlugin], // 注入誤差線外掛
+                plugins: [drawErrorBarsPlugin],
                 options: { 
                     plugins: {
                         tooltip: {
@@ -461,7 +465,7 @@ AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
                  });
             });
 
-            // 自定義 Plugin：將頻次與劑量文字畫在條狀圖上
+            // 自定義 Plugin：將頻次與劑量文字畫在甘特圖內部
             const drawDosagePlugin = {
                 id: 'drawDosage',
                 afterDatasetsDraw(chart) {
