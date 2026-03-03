@@ -3,70 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療數據智慧製圖工具 (v22.7.3 - 邏輯融合版)</title>
-    
+    <title>醫療數據智慧製圖工具 (v22.7.4)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    
     <style>
-        body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f3f4f6; }
-        .chart-wrapper { position: relative; margin-bottom: 2rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .gantt-scroll-container { width: 100%; overflow-y: auto; max-height: 600px; border: 1px solid #f3f4f6; border-radius: 4px; background: white; }
-        .chart-toolbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid #f3f4f6; padding-bottom: 0.5rem; }
-        .chart-title { font-size: 1.1rem; font-weight: 700; color: #374151; margin-right: auto; }
-        .chart-btn { font-size: 0.85rem; padding: 0.4rem 0.8rem; background: #3b82f6; color: white; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-weight: 500; }
-        .chart-btn:hover { background: #2563eb; }
-        textarea.nowrap { white-space: pre; overflow-x: auto; font-family: monospace; font-size: 0.9rem; line-height: 1.5; }
+        body { font-family: "Inter", -apple-system, system-ui, sans-serif; background-color: #f3f4f6; }
+        .chart-wrapper { position: relative; margin-bottom: 2rem; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1.5rem; background: white; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .gantt-scroll-container { width: 100%; overflow-y: auto; max-height: 750px; border: 1px solid #f3f4f6; border-radius: 8px; background: white; }
+        .chart-toolbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #f3f4f6; padding-bottom: 0.5rem; }
+        .chart-title { font-size: 1.2rem; font-weight: 800; color: #1f2937; margin-right: auto; }
+        .chart-btn { font-size: 0.85rem; padding: 0.5rem 1rem; background: #3b82f6; color: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-weight: 600; }
+        .chart-btn:hover { background: #2563eb; transform: translateY(-1px); }
+        textarea.nowrap { white-space: pre; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.85rem; line-height: 1.6; }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="p-4 md:p-10">
 
     <div class="max-w-[1600px] mx-auto w-full">
-        <header class="mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center">
+        <header class="mb-10 text-center md:text-left flex flex-col md:flex-row justify-between items-end">
             <div>
-                <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">醫療數據智慧製圖工具</h1>
-                <p class="text-gray-500 mt-1">融合版：繼承 v22.7.0 Lab 邏輯 + v22.7.1 劑量修正</p>
+                <h1 class="text-4xl font-black text-gray-900 tracking-tight">醫療數據智慧製圖工具</h1>
+                <p class="text-gray-500 mt-2 text-lg">整合版：優化 Lab 視覺效果與藥物劑量精準解析</p>
             </div>
-            <div class="mt-4 md:mt-0">
-                <button onclick="clearAll()" class="text-sm text-red-500 hover:text-red-700 font-medium underline">清空所有內容</button>
-            </div>
+            <button onclick="clearAll()" class="mt-4 md:mt-0 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-semibold underline decoration-2 underline-offset-4">清空所有內容</button>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            <div class="space-y-6">
-                <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-blue-500">
-                    <label class="block text-lg font-bold text-gray-700 mb-2">1. 檢驗數據 (Lab Data)</label>
-                    <textarea id="labDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="在此貼上 Lab 數據..."></textarea>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+            <div class="space-y-8">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border-t-8 border-blue-500">
+                    <label class="block text-xl font-bold text-gray-800 mb-3">1. 檢驗數據 (Lab Data)</label>
+                    <textarea id="labDataInput" rows="12" class="nowrap w-full p-4 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none transition-all" placeholder="在此貼上 Lab 數據..."></textarea>
                 </div>
-                <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500">
-                    <label class="block text-lg font-bold text-gray-700 mb-2">2. 用藥紀錄 (Medication)</label>
-                    <textarea id="medDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="在此貼上處方表格..."></textarea>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border-t-8 border-green-500">
+                    <label class="block text-xl font-bold text-gray-800 mb-3">2. 用藥紀錄 (Medication)</label>
+                    <textarea id="medDataInput" rows="12" class="nowrap w-full p-4 border border-gray-200 rounded-xl focus:ring-4 focus:ring-green-100 outline-none transition-all" placeholder="在此貼上用藥清單..."></textarea>
                 </div>
             </div>
 
-            <div class="space-y-6">
-                <div id="chartsOutput" class="space-y-6">
-                    <div id="emptyState" class="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 rounded-xl p-10 min-h-[400px]">
-                        <p class="text-lg">圖表預覽區域</p>
-                    </div>
+            <div id="chartsOutput" class="space-y-8">
+                <div id="emptyState" class="flex flex-col items-center justify-center text-gray-400 border-4 border-dashed border-gray-200 rounded-3xl p-20 min-h-[500px]">
+                    <svg class="w-20 h-20 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <p class="text-xl font-medium">等待輸入數據...</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const CHART_COLORS = { orange: 'rgb(249, 115, 22)', blue: 'rgb(59, 130, 246)', purple: 'rgb(168, 85, 247)', red: 'rgb(239, 68, 68)', teal: 'rgb(20, 184, 166)', gray: 'rgb(107, 114, 128)' };
-
+        const CHART_COLORS = { orange: '#f97316', blue: '#3b82f6', purple: '#a855f7', red: '#ef4444', teal: '#14b8a6', gray: '#6b7280' };
+        
         const LAB_GROUPS = [
             { name: '肝功能 (Liver)', keys: ['AST', 'GOT', 'ALT', 'GPT', 'ALBUMIN', 'BILIRUBINTOTAL', 'BILIRUBIN', 'TBIL'], colors: [CHART_COLORS.orange, CHART_COLORS.red, CHART_COLORS.teal, CHART_COLORS.purple], type: 'dual', leftKeys: ['AST', 'GOT', 'ALT', 'GPT'], rightKeys: ['ALBUMIN', 'BILIRUBINTOTAL', 'BILIRUBIN', 'TBIL'] },
             { name: '腎功能 (Renal)', keys: ['CREATININE', 'CREA', 'SCR', 'BUN'], colors: [CHART_COLORS.red, CHART_COLORS.blue], type: 'dual', leftKeys: ['BUN'], rightKeys: ['CREATININE', 'CREA', 'SCR'] },
-            { name: '發炎指標 (Infection)', keys: ['WBC', 'CRP', 'NEUTROPHIL', 'SEG', 'PCT'], colors: [CHART_COLORS.blue, CHART_COLORS.purple, CHART_COLORS.teal], type: 'dual', leftKeys: ['WBC', 'NEUTROPHIL', 'SEG'], rightKeys: ['CRP', 'PCT'] },
-            { name: '電解質 (Electrolytes)', keys: ['NA', 'SODIUM', 'K', 'POTASSIUM', 'CL', 'CHLORIDE', 'CA', 'CALCIUM'], colors: [CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.gray], type: 'normal' },
-            { name: '血糖 (Glucose)', keys: ['GLU', 'GLUCOSE', 'AC', 'PC'], colors: [CHART_COLORS.orange], type: 'normal' },
-            { name: '血液 (Blood)', keys: ['EOSINOPHIL', 'LYMPHOCYTE', 'MCH', 'PLT', 'HCT', 'HB', 'HEMOGLOBIN', 'MCHC', 'MCV', 'RBC'], colors: [CHART_COLORS.red, CHART_COLORS.blue, CHART_COLORS.gray, CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, CHART_COLORS.blue, CHART_COLORS.gray], type: 'normal' },
-            { name: '心臟指標 (Cardiac)', keys: ['PROBNP', 'TROPONIN', 'TROPONINI'], colors: [CHART_COLORS.red, CHART_COLORS.blue], type: 'normal' },
-            { name: '凝血指標 (Coagulation)', keys: ['APTT', 'INR', 'PT'], colors: [CHART_COLORS.purple, CHART_COLORS.teal], type: 'normal' }
+            { name: '發炎指標 (Infection)', keys: ['WBC', 'CRP', 'PCT'], colors: [CHART_COLORS.blue, CHART_COLORS.purple, CHART_COLORS.teal], type: 'dual', leftKeys: ['WBC'], rightKeys: ['CRP', 'PCT'] },
+            { name: '電解質 (Electrolytes)', keys: ['NA', 'SODIUM', 'K', 'POTASSIUM', 'CL', 'CHLORIDE', 'CA'], colors: [CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.gray], type: 'normal' }
         ];
 
         let activeCharts = [];
@@ -75,20 +66,14 @@
             if (!str) return null;
             const match = str.match(/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
             if (!match) return null;
-            const y = 2026;
-            const m = parseInt(match[1]) - 1;
-            const d = parseInt(match[2]);
-            const hour = match[3] ? parseInt(match[3]) : 0;
-            const min = match[4] ? parseInt(match[4]) : 0;
-            return new Date(y, m, d, hour, min);
+            return new Date(2026, parseInt(match[1]) - 1, parseInt(match[2]), match[3] ? parseInt(match[3]) : 0, match[4] ? parseInt(match[4]) : 0);
         }
 
-        // --- 繼承舊版 Lab 解析邏輯 ---
+        // --- Lab Data 解析 ---
         function parseLab(text) {
             const lab = {};
             const lines = text.split('\n').filter(l => l.trim());
             const regex = /(\d+(?:\.\d+)?)\s*.*?\s*\(?([\d\.\/-]+(?:\s+\d+:\d+)?)\)?/g;
-            
             lines.forEach(l => {
                 if (!l.includes(':') && !l.includes('：')) return;
                 const parts = l.split(/[:：]/);
@@ -100,134 +85,69 @@
                     if(d) lab[key].data.push({ x: d, y: parseFloat(m[1]) });
                 }
             });
-
             Object.keys(lab).forEach(key => {
-                const dataPoints = lab[key].data;
-                const dailyGroups = {};
-                dataPoints.forEach(pt => {
-                    const d = new Date(pt.x);
-                    d.setHours(0, 0, 0, 0);
-                    const timeKey = d.getTime();
-                    if (!dailyGroups[timeKey]) dailyGroups[timeKey] = [];
-                    dailyGroups[timeKey].push(pt.y);
+                const daily = {};
+                lab[key].data.forEach(pt => {
+                    const d = new Date(pt.x).setHours(0,0,0,0);
+                    if(!daily[d]) daily[d] = []; daily[d].push(pt.y);
                 });
-                const aggregatedData = [];
-                Object.keys(dailyGroups).forEach(timeKey => {
-                    const vals = dailyGroups[timeKey];
-                    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-                    let sd = 0;
-                    if (vals.length > 1) {
-                        const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (vals.length - 1);
-                        sd = Math.sqrt(variance);
-                    }
-                    aggregatedData.push({ x: parseInt(timeKey), y: mean, sd: sd, count: vals.length });
-                });
-                aggregatedData.sort((a, b) => a.x - b.x);
-                lab[key].data = aggregatedData;
+                lab[key].data = Object.keys(daily).map(d => {
+                    const vals = daily[d];
+                    const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+                    let sd = vals.length > 1 ? Math.sqrt(vals.reduce((a,b)=>a+Math.pow(b-mean,2),0)/(vals.length-1)) : 0;
+                    return { x: parseInt(d), y: mean, sd: sd, count: vals.length };
+                }).sort((a,b)=>a.x - b.x);
             });
             return lab;
         }
 
-        // --- 導入修正後的用藥解析邏輯 ---
+        // --- Medication 解析 (優化版) ---
         function parseMed(text) {
             const medsMap = {};
             const colors = Object.values(CHART_COLORS);
             const dateRegex = /(\d{1,2}\/\d{1,2}(?:\s+\d{1,2}:\d{2})?)/g;
+            const lines = text.split('\n').filter(l => l.trim() && !l.includes('處方'));
             
-            let globalMaxDate = new Date(0);
-            const lines = text.split('\n').filter(l => l.trim() && !l.includes('處方') && !l.includes('開始時間'));
-            
-            lines.forEach(l => {
-                const found = l.match(dateRegex);
-                if (found) found.forEach(dStr => {
-                    const d = parseChartDate(dStr);
-                    if (d && d > globalMaxDate) globalMaxDate = d;
-                });
-            });
-            if (globalMaxDate.getTime() === 0) globalMaxDate = new Date();
+            let maxD = new Date(0);
+            lines.forEach(l => { (l.match(dateRegex)||[]).forEach(dStr => { const d = parseChartDate(dStr); if(d > maxD) maxD = d; })});
+            if (maxD.getTime() === 0) maxD = new Date();
 
             let cIdx = 0;
             lines.forEach(l => {
-                const datesFound = l.match(dateRegex);
-                if (datesFound) {
-                    const firstDateIdx = l.search(dateRegex);
-                    const beforeDateStr = l.substring(0, firstDateIdx).trim();
+                const dates = l.match(dateRegex);
+                if (dates) {
+                    const namePart = l.substring(0, l.search(dateRegex)).trim();
+                    const cols = namePart.split(/\s{2,}/);
+                    let drug = cols[0], dosage = cols.length > 1 ? cols[1] : "", freq = cols.length > 2 ? cols[2] : "";
                     
-                    // 修正核心：精準欄位切割
-                    const cols = beforeDateStr.split(/\s{2,}/); 
-                    let drugName = cols[0].trim();
-                    let dosageVal = cols.length > 1 ? cols[1].trim() : "";
-                    let freqVal = cols.length > 2 ? cols[2].trim() : "";
-                    
-                    let dosageDisplay = `${dosageVal} ${freqVal}`.trim();
+                    const start = parseChartDate(dates[0]);
+                    const end = dates[1] ? parseChartDate(dates[1]) : new Date(maxD.getTime() + 86400000);
 
-                    const start = parseChartDate(datesFound[0]);
-                    const end = datesFound.length > 1 ? parseChartDate(datesFound[1]) : new Date(Math.max(globalMaxDate.getTime(), start.getTime() + 86400000));
-
-                    if (start && end) {
-                        if (!medsMap[drugName]) {
-                            medsMap[drugName] = { segments: [], color: colors[cIdx++ % colors.length] };
-                        }
-                        medsMap[drugName].segments.push({ start: start.getTime(), end: end.getTime(), dosage: dosageDisplay });
-                    }
+                    if (!medsMap[drug]) medsMap[drug] = { segments: [], color: colors[cIdx++ % colors.length] };
+                    medsMap[drug].segments.push({ start: start.getTime(), end: end.getTime(), label: `${dosage} ${freq}`.trim() });
                 }
             });
             return medsMap;
         }
 
-        const drawErrorBarsPlugin = {
-            id: 'errorBars',
-            afterDatasetsDraw(chart) {
-                const ctx = chart.ctx;
-                chart.data.datasets.forEach((dataset, i) => {
-                    const meta = chart.getDatasetMeta(i);
-                    if (!meta.hidden && dataset.data) {
-                        meta.data.forEach((element, index) => {
-                            const dataPoint = dataset.data[index];
-                            if (dataPoint && dataPoint.sd && dataPoint.sd > 0) {
-                                const yAxis = chart.scales[meta.yAxisID];
-                                const x = element.x;
-                                const yTop = yAxis.getPixelForValue(dataPoint.y + dataPoint.sd);
-                                const yBottom = yAxis.getPixelForValue(dataPoint.y - dataPoint.sd);
-                                ctx.save();
-                                ctx.beginPath();
-                                ctx.moveTo(x, yTop); ctx.lineTo(x, yBottom);
-                                ctx.moveTo(x - 4, yTop); ctx.lineTo(x + 4, yTop);
-                                ctx.moveTo(x - 4, yBottom); ctx.lineTo(x + 4, yBottom);
-                                ctx.strokeStyle = dataset.borderColor;
-                                ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
-                            }
-                        });
-                    }
-                });
-            }
-        };
-
-        function createLabChart(title, keys, labData, groupConfig) {
+        function createLabChart(title, keys, labData, config) {
             const wrapper = document.createElement('div');
             wrapper.className = 'chart-wrapper';
-            const canvasId = `chart_${Math.random().toString(36).substr(2, 9)}`;
-            wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">${title}</h3><button class="chart-btn" onclick="downloadChart('${canvasId}', '${title}.png')">📥 下載</button></div><canvas id="${canvasId}" style="max-height:300px;"></canvas>`;
+            const canvasId = `chart_${Math.random()}`;
+            wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">${title}</h3></div><canvas id="${canvasId}" style="max-height:300px;"></canvas>`;
             document.getElementById('chartsOutput').appendChild(wrapper);
             
-            const datasets = keys.map((k, i) => ({
-                label: labData[k].label,
-                data: labData[k].data,
-                borderColor: groupConfig.colors[i % groupConfig.colors.length],
-                backgroundColor: groupConfig.colors[i % groupConfig.colors.length],
-                yAxisID: (groupConfig.type === 'dual' && groupConfig.rightKeys?.some(rk => k.includes(rk))) ? 'y1' : 'y',
-                tension: 0.3, pointRadius: 4
-            }));
-
-            activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), {
-                type: 'line', data: { datasets }, plugins: [drawErrorBarsPlugin],
-                options: {
-                    scales: {
-                        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } } },
-                        y: { position: 'left' },
-                        ...(groupConfig.type === 'dual' ? { y1: { position: 'right', grid: { drawOnChartArea: false } } } : {})
-                    }
-                }
+            activeCharts.push(new Chart(document.getElementById(canvasId), {
+                type: 'line',
+                data: {
+                    datasets: keys.map((k, i) => ({
+                        label: labData[k].label, data: labData[k].data,
+                        borderColor: config.colors[i % config.colors.length],
+                        yAxisID: (config.type === 'dual' && config.rightKeys?.some(rk => k.includes(rk))) ? 'y1' : 'y',
+                        tension: 0.3
+                    }))
+                },
+                options: { scales: { x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } } } } }
             }));
         }
 
@@ -235,42 +155,50 @@
             const labels = Object.keys(medsMap);
             const wrapper = document.createElement('div');
             wrapper.className = 'chart-wrapper';
-            const canvasId = `chart_gantt_${Math.random().toString(36).substr(2, 9)}`;
-            const chartHeight = (labels.length * 45) + 60;
-            wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">用藥甘特圖</h3><button class="chart-btn" onclick="downloadChart('${canvasId}', 'gantt.png')">📥 下載</button></div><div class="gantt-scroll-container"><canvas id="${canvasId}" style="height: ${chartHeight}px; width: 100%;"></canvas></div>`;
+            const canvasId = `gantt_${Math.random()}`;
+            // 優化點：動態行高，藥物越多高度越大，避免擠壓
+            const rowHeight = 55; 
+            const chartHeight = (labels.length * rowHeight) + 100;
+            
+            wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">用藥甘特圖 (橫軸僅日期)</h3><button class="chart-btn" onclick="downloadChart('${canvasId}')">📥 下載圖表</button></div><div class="gantt-scroll-container"><canvas id="${canvasId}" style="height: ${chartHeight}px; width: 100%;"></canvas></div>`;
             document.getElementById('chartsOutput').appendChild(wrapper);
 
-            const allData = []; const colors = [];
-            let minD = Infinity, maxD = -Infinity;
+            const flatData = []; const bgColors = [];
             labels.forEach(name => {
                 medsMap[name].segments.forEach(seg => {
-                    allData.push({ x: [seg.start, seg.end], y: name, dosage: seg.dosage });
-                    colors.push(medsMap[name].color);
-                    if(seg.start < minD) minD = seg.start; if(seg.end > maxD) maxD = seg.end;
+                    flatData.push({ x: [seg.start, seg.end], y: name, dosage: seg.label });
+                    bgColors.push(medsMap[name].color);
                 });
             });
 
-            activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), {
-                type: 'bar', data: { labels, datasets: [{ data: allData, backgroundColor: colors, borderRadius: 4, barPercentage: 0.8 }] },
+            activeCharts.push(new Chart(document.getElementById(canvasId), {
+                type: 'bar',
+                data: { labels, datasets: [{ data: flatData, backgroundColor: bgColors, borderRadius: 6, barPercentage: 0.75 }] },
                 plugins: [{
                     id: 'drawDosage',
                     afterDatasetsDraw(chart) {
-                        const ctx = chart.ctx;
+                        const { ctx } = chart;
                         chart.getDatasetMeta(0).data.forEach((bar, i) => {
                             const d = chart.data.datasets[0].data[i].dosage;
-                            ctx.save(); ctx.fillStyle = 'white'; ctx.font = 'bold 12px Inter'; ctx.textAlign = 'left';
+                            ctx.save();
+                            ctx.fillStyle = 'white';
+                            ctx.font = 'bold 13px Inter';
+                            ctx.textAlign = 'left';
                             const left = Math.min(bar.base, bar.x);
                             const width = Math.abs(bar.base - bar.x);
+                            // 剪裁文字，防止溢出到長條外
                             ctx.beginPath(); ctx.rect(left, bar.y - bar.height/2, width, bar.height); ctx.clip();
-                            ctx.fillText(d, left + 6, bar.y + 1); ctx.restore();
+                            ctx.fillText(d, left + 8, bar.y + 1);
+                            ctx.restore();
                         });
                     }
                 }],
                 options: {
-                    indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    indexAxis: 'y', maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
                     scales: {
-                        x: { type: 'time', min: minD - 86400000, max: maxD + 86400000, time: { unit: 'day', displayFormats: { day: 'MM/dd' } } },
-                        y: { ticks: { font: { weight: 'bold' } } }
+                        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } }, grid: { borderDash: [5, 5] } },
+                        y: { ticks: { font: { weight: 'bold', size: 13 }, padding: 10 } }
                     }
                 }
             }));
@@ -279,24 +207,20 @@
         function renderAll() {
             document.getElementById('chartsOutput').innerHTML = '';
             activeCharts.forEach(c => c.destroy()); activeCharts = [];
-            const labText = document.getElementById('labDataInput').value;
-            const medText = document.getElementById('medDataInput').value;
-            if (labText) {
-                const labData = parseLab(labText); const processed = new Set();
+            const labV = document.getElementById('labDataInput').value, medV = document.getElementById('medDataInput').value;
+            if (labV) {
+                const data = parseLab(labV); const processed = new Set();
                 LAB_GROUPS.forEach(g => {
-                    const keys = Object.keys(labData).filter(k => g.keys.some(gk => k.includes(gk)) && labData[k].data.length > 0 && !processed.has(k));
-                    if(keys.length > 0) { keys.forEach(k => processed.add(k)); createLabChart(g.name, keys, labData, g); }
+                    const keys = Object.keys(data).filter(k => g.keys.some(gk => k.includes(gk)) && !processed.has(k));
+                    if(keys.length) { keys.forEach(k=>processed.add(k)); createLabChart(g.name, keys, data, g); }
                 });
             }
-            if (medText) createGanttChart(parseMed(medText));
+            if (medV) createGanttChart(parseMed(medV));
         }
 
-        window.downloadChart = (id, name) => { const c = document.getElementById(id); const a = document.createElement('a'); a.download = name; a.href = c.toDataURL(); a.click(); };
-        window.clearAll = () => { if(confirm("清空？")) { document.getElementById('labDataInput').value = ""; document.getElementById('medDataInput').value = ""; renderAll(); } };
-        let timer;
-        const debounced = () => { clearTimeout(timer); timer = setTimeout(renderAll, 600); };
-        document.getElementById('labDataInput').addEventListener('input', debounced);
-        document.getElementById('medDataInput').addEventListener('input', debounced);
+        window.downloadChart = (id) => { const a = document.createElement('a'); a.download = 'chart.png'; a.href = document.getElementById(id).toDataURL(); a.click(); };
+        window.clearAll = () => { if(confirm("確定清空？")) { document.getElementById('labDataInput').value = ""; document.getElementById('medDataInput').value = ""; renderAll(); } };
+        let t; document.querySelectorAll('textarea').forEach(el => el.addEventListener('input', () => { clearTimeout(t); t = setTimeout(renderAll, 600); }));
     </script>
 </body>
 </html>
