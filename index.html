@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療數據智慧製圖工具 (v22.7.3 - 邏輯融合版)</title>
+    <title>醫療數據智慧製圖工具 (v22.7.5)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -26,7 +26,7 @@
         <header class="mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">醫療數據智慧製圖工具</h1>
-                <p class="text-gray-500 mt-1">融合版：繼承 v22.7.0 Lab 邏輯 + v22.7.1 劑量修正</p>
+                <p class="text-gray-500 mt-1 text-sm">v22.7.5：STAT 處方改為圓點顯示，不帶文字標記</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <button onclick="clearAll()" class="text-sm text-red-500 hover:text-red-700 font-medium underline">清空所有內容</button>
@@ -83,12 +83,11 @@
             return new Date(y, m, d, hour, min);
         }
 
-        // --- 繼承舊版 Lab 解析邏輯 ---
+        // --- Lab Data 解析邏輯 (照舊不變) ---
         function parseLab(text) {
             const lab = {};
             const lines = text.split('\n').filter(l => l.trim());
             const regex = /(\d+(?:\.\d+)?)\s*.*?\s*\(?([\d\.\/-]+(?:\s+\d+:\d+)?)\)?/g;
-            
             lines.forEach(l => {
                 if (!l.includes(':') && !l.includes('：')) return;
                 const parts = l.split(/[:：]/);
@@ -100,7 +99,6 @@
                     if(d) lab[key].data.push({ x: d, y: parseFloat(m[1]) });
                 }
             });
-
             Object.keys(lab).forEach(key => {
                 const dataPoints = lab[key].data;
                 const dailyGroups = {};
@@ -128,14 +126,14 @@
             return lab;
         }
 
-        // --- 導入修正後的用藥解析邏輯 ---
+        // --- 用藥紀錄解析邏輯 (導入圓點識別) ---
         function parseMed(text) {
             const medsMap = {};
             const colors = Object.values(CHART_COLORS);
             const dateRegex = /(\d{1,2}\/\d{1,2}(?:\s+\d{1,2}:\d{2})?)/g;
             
             let globalMaxDate = new Date(0);
-            const lines = text.split('\n').filter(l => l.trim() && !l.includes('處方') && !l.includes('開始時間'));
+            const lines = text.split('\n').filter(l => l.trim() && !l.includes('處方'));
             
             lines.forEach(l => {
                 const found = l.match(dateRegex);
@@ -152,23 +150,29 @@
                 if (datesFound) {
                     const firstDateIdx = l.search(dateRegex);
                     const beforeDateStr = l.substring(0, firstDateIdx).trim();
-                    
-                    // 修正核心：精準欄位切割
                     const cols = beforeDateStr.split(/\s{2,}/); 
+                    
                     let drugName = cols[0].trim();
                     let dosageVal = cols.length > 1 ? cols[1].trim() : "";
                     let freqVal = cols.length > 2 ? cols[2].trim() : "";
                     
-                    let dosageDisplay = `${dosageVal} ${freqVal}`.trim();
-
+                    // 識別 STAT
+                    const isStat = freqVal.toUpperCase().includes('STAT');
+                    
                     const start = parseChartDate(datesFound[0]);
-                    const end = datesFound.length > 1 ? parseChartDate(datesFound[1]) : new Date(Math.max(globalMaxDate.getTime(), start.getTime() + 86400000));
+                    // 如果是 STAT，長度設為極短（1秒），繪圖插件會將其畫成圓點
+                    const end = isStat ? new Date(start.getTime() + 1000) : (datesFound.length > 1 ? parseChartDate(datesFound[1]) : new Date(Math.max(globalMaxDate.getTime(), start.getTime() + 86400000)));
 
                     if (start && end) {
                         if (!medsMap[drugName]) {
                             medsMap[drugName] = { segments: [], color: colors[cIdx++ % colors.length] };
                         }
-                        medsMap[drugName].segments.push({ start: start.getTime(), end: end.getTime(), dosage: dosageDisplay });
+                        medsMap[drugName].segments.push({ 
+                            start: start.getTime(), 
+                            end: end.getTime(), 
+                            dosage: `${dosageVal} ${freqVal}`.trim(),
+                            isStat: isStat 
+                        });
                     }
                 }
             });
@@ -181,7 +185,7 @@
                 const ctx = chart.ctx;
                 chart.data.datasets.forEach((dataset, i) => {
                     const meta = chart.getDatasetMeta(i);
-                    if (!meta.hidden && dataset.data) {
+                    if (!meta.hidden && dataset.data && meta.yAxisID) {
                         meta.data.forEach((element, index) => {
                             const dataPoint = dataset.data[index];
                             if (dataPoint && dataPoint.sd && dataPoint.sd > 0) {
@@ -237,14 +241,14 @@
             wrapper.className = 'chart-wrapper';
             const canvasId = `chart_gantt_${Math.random().toString(36).substr(2, 9)}`;
             const chartHeight = (labels.length * 45) + 60;
-            wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">用藥甘特圖</h3><button class="chart-btn" onclick="downloadChart('${canvasId}', 'gantt.png')">📥 下載</button></div><div class="gantt-scroll-container"><canvas id="${canvasId}" style="height: ${chartHeight}px; width: 100%;"></canvas></div>`;
+            wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">用藥甘特圖 (● 圓點代表 STAT 處方)</h3><button class="chart-btn" onclick="downloadChart('${canvasId}', 'gantt.png')">📥 下載</button></div><div class="gantt-scroll-container"><canvas id="${canvasId}" style="height: ${chartHeight}px; width: 100%;"></canvas></div>`;
             document.getElementById('chartsOutput').appendChild(wrapper);
 
             const allData = []; const colors = [];
             let minD = Infinity, maxD = -Infinity;
             labels.forEach(name => {
                 medsMap[name].segments.forEach(seg => {
-                    allData.push({ x: [seg.start, seg.end], y: name, dosage: seg.dosage });
+                    allData.push({ x: [seg.start, seg.end], y: name, dosage: seg.dosage, isStat: seg.isStat });
                     colors.push(medsMap[name].color);
                     if(seg.start < minD) minD = seg.start; if(seg.end > maxD) maxD = seg.end;
                 });
@@ -253,16 +257,37 @@
             activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), {
                 type: 'bar', data: { labels, datasets: [{ data: allData, backgroundColor: colors, borderRadius: 4, barPercentage: 0.8 }] },
                 plugins: [{
-                    id: 'drawDosage',
+                    id: 'drawCustomMarkers',
                     afterDatasetsDraw(chart) {
                         const ctx = chart.ctx;
                         chart.getDatasetMeta(0).data.forEach((bar, i) => {
-                            const d = chart.data.datasets[0].data[i].dosage;
-                            ctx.save(); ctx.fillStyle = 'white'; ctx.font = 'bold 12px Inter'; ctx.textAlign = 'left';
+                            const dataObj = chart.data.datasets[0].data[i];
                             const left = Math.min(bar.base, bar.x);
-                            const width = Math.abs(bar.base - bar.x);
-                            ctx.beginPath(); ctx.rect(left, bar.y - bar.height/2, width, bar.height); ctx.clip();
-                            ctx.fillText(d, left + 6, bar.y + 1); ctx.restore();
+                            
+                            if (dataObj.isStat) {
+                                // 1. 繪製圓點 (STAT)
+                                ctx.save();
+                                // 先蓋掉原始極細的 bar
+                                ctx.fillStyle = 'white';
+                                ctx.fillRect(left - 2, bar.y - bar.height/2, 5, bar.height);
+                                
+                                // 畫圓點
+                                ctx.beginPath();
+                                ctx.arc(left, bar.y, 6, 0, Math.PI * 2);
+                                ctx.fillStyle = chart.data.datasets[0].backgroundColor[i];
+                                ctx.fill();
+                                ctx.restore();
+                            } else {
+                                // 2. 繪製長條內的文字 (一般用藥)
+                                ctx.save();
+                                ctx.fillStyle = 'white';
+                                ctx.font = 'bold 12px Inter';
+                                ctx.textAlign = 'left';
+                                const width = Math.abs(bar.base - bar.x);
+                                ctx.beginPath(); ctx.rect(left, bar.y - bar.height/2, width, bar.height); ctx.clip();
+                                ctx.fillText(dataObj.dosage, left + 6, bar.y + 1);
+                                ctx.restore();
+                            }
                         });
                     }
                 }],
