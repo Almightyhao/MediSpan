@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療數據智慧製圖工具 (Standalone v22.3.0)</title>
+    <title>醫療數據智慧製圖工具 (Standalone v22.5.0)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,59 +11,13 @@
     
     <style>
         body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f3f4f6; }
-        
-        .chart-wrapper { 
-            position: relative; 
-            margin-bottom: 2rem; 
-            border: 1px solid #e5e7eb; 
-            border-radius: 0.5rem; 
-            padding: 1rem; 
-            background: white; 
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        .gantt-scroll-container {
-            width: 100%;
-            overflow-y: auto;
-            max-height: 600px; 
-            border: 1px solid #f3f4f6;
-            border-radius: 4px;
-            background: white;
-        }
-
-        .chart-toolbar { 
-            display: flex; 
-            justify-content: flex-end; 
-            align-items: center;
-            margin-bottom: 0.5rem; 
-            border-bottom: 1px solid #f3f4f6; 
-            padding-bottom: 0.5rem; 
-        }
-        .chart-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #374151;
-            margin-right: auto;
-        }
-        .chart-btn { 
-            font-size: 0.85rem; 
-            padding: 0.4rem 0.8rem; 
-            background: #3b82f6; 
-            color: white; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            transition: background 0.2s;
-            font-weight: 500;
-        }
+        .chart-wrapper { position: relative; margin-bottom: 2rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .gantt-scroll-container { width: 100%; overflow-y: auto; max-height: 600px; border: 1px solid #f3f4f6; border-radius: 4px; background: white; }
+        .chart-toolbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid #f3f4f6; padding-bottom: 0.5rem; }
+        .chart-title { font-size: 1.1rem; font-weight: 700; color: #374151; margin-right: auto; }
+        .chart-btn { font-size: 0.85rem; padding: 0.4rem 0.8rem; background: #3b82f6; color: white; border-radius: 4px; cursor: pointer; transition: background 0.2s; font-weight: 500; }
         .chart-btn:hover { background: #2563eb; }
-
-        textarea.nowrap { 
-            white-space: pre; 
-            overflow-x: auto; 
-            font-family: monospace; 
-            font-size: 0.9rem; 
-            line-height: 1.5;
-        }
+        textarea.nowrap { white-space: pre; overflow-x: auto; font-family: monospace; font-size: 0.9rem; line-height: 1.5; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -72,7 +26,7 @@
         <header class="mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">醫療數據智慧製圖工具</h1>
-                <p class="text-gray-500 mt-1">支援原始表格解析・精準指標綁定・SD誤差線・動態用藥甘特圖</p>
+                <p class="text-gray-500 mt-1">支援 HIS 處方表格直貼・Hb/CRP精準綁定・SD誤差線・動態用藥甘特圖</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <button onclick="clearAll()" class="text-sm text-red-500 hover:text-red-700 font-medium underline">清空所有內容</button>
@@ -80,52 +34,29 @@
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            
             <div class="space-y-6">
-                
                 <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-blue-500">
-                    <label class="block text-lg font-bold text-gray-700 mb-2 flex justify-between">
-                        1. 檢驗數據 (Lab Data)
-                        <span class="text-xs font-normal text-gray-400 self-end">支援表格與文字</span>
-                    </label>
+                    <label class="block text-lg font-bold text-gray-700 mb-2 flex justify-between">1. 檢驗數據 (Lab Data)</label>
                     <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
-                        <strong>自動綁定群組：</strong>肝/腎/感染/電解質/血液/心臟/凝血<br>
-                        * <strong>同日多筆數據將自動計算平均值，並繪製標準差 (Error Bar)</strong>。已歸類項目 (如 CRP, Albumin) 具備互斥保護，不重複顯示。
+                        <strong>自動綁定群組：</strong>含 Hb (血液), CRP (發炎), Na/K (電解質) 等。<br>
+                        * 同日多筆數據將自動計算平均值並繪製標準差 (Error Bar)。
                     </div>
-                    <textarea id="labDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none" 
-                    placeholder="在此貼上 Lab 數據...
-範例 (同日多筆將繪製 Error Bar)：
-GLUCOSE: 120(10/1 08:00), 180(10/1 12:00), 110(10/1 18:00)
-GLUCOSE: 105(10/2)"></textarea>
+                    <textarea id="labDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="在此貼上 Lab 數據..."></textarea>
                 </div>
-
                 <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500">
-                    <label class="block text-lg font-bold text-gray-700 mb-2 flex justify-between">
-                        2. 用藥紀錄 (Medication)
-                        <span class="text-xs font-normal text-gray-400 self-end">支援清單與區間</span>
-                    </label>
+                    <label class="block text-lg font-bold text-gray-700 mb-2 flex justify-between">2. 用藥紀錄 (Medication)</label>
                     <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
-                        <strong>自動疊加機制：</strong><br>
-                        同品項若有不同劑量/頻次（如 <code>2#Q6H</code>, <code>1#STAT</code>），將自動合併於同一橫列，並於圖表內部標示用法。
+                        <strong>HIS 表格自動解析：</strong>支援直接貼上 <code>處方 劑量 頻率 用法</code> 格式的空白對齊報表。<br>同名藥物自動合併至同一橫列，並於圖內精準標註劑量與頻率。
                     </div>
-                    <textarea id="medDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-shadow outline-none" 
-                    placeholder="在此貼上用藥清單...
-範例：
-AMPOLIN INJ 500 MG 2#Q6H 10/22 10/24
-AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27
-KCL_POTASSIUM 2#STAT 10/25
-KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
+                    <textarea id="medDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none" 
+                    placeholder="在此貼上用藥清單..."></textarea>
                 </div>
             </div>
 
             <div class="space-y-6">
                 <div id="chartsOutput" class="space-y-6">
                     <div id="emptyState" class="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 rounded-xl p-10 min-h-[400px]">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                        </svg>
                         <p class="text-lg">圖表預覽區域</p>
-                        <p class="text-sm mt-2">請在左側貼上資料，圖表將自動產生。</p>
                     </div>
                 </div>
             </div>
@@ -135,7 +66,6 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
     <script>
         const CHART_COLORS = { orange: 'rgb(249, 115, 22)', blue: 'rgb(59, 130, 246)', purple: 'rgb(168, 85, 247)', red: 'rgb(239, 68, 68)', teal: 'rgb(20, 184, 166)', gray: 'rgb(107, 114, 128)' };
 
-        // 嚴格定義的指標綁定群組 (互斥機制與精確匹配)
         const LAB_GROUPS = [
             { name: '肝功能 (Liver)', keys: ['AST', 'GOT', 'ALT', 'GPT', 'ALBUMIN', 'BILIRUBINTOTAL', 'BILIRUBIN', 'TBIL'], colors: [CHART_COLORS.orange, CHART_COLORS.red, CHART_COLORS.teal, CHART_COLORS.purple], type: 'dual', leftKeys: ['AST', 'GOT', 'ALT', 'GPT'], rightKeys: ['ALBUMIN', 'BILIRUBINTOTAL', 'BILIRUBIN', 'TBIL'] },
             { name: '腎功能 (Renal)', keys: ['CREATININE', 'CREA', 'SCR', 'BUN'], colors: [CHART_COLORS.red, CHART_COLORS.blue], type: 'dual', leftKeys: ['BUN'], rightKeys: ['CREATININE', 'CREA', 'SCR'] },
@@ -151,15 +81,9 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
 
         function parseChartDate(str) {
             if (!str) return null;
+            // 完美解析 MM/DD 或 MM/DD HH:mm 格式
             const match = str.match(/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
-            if (!match) {
-                if (/^\d{4}$/.test(str)) {
-                    const m = parseInt(str.substring(0, 2)) - 1;
-                    const d = parseInt(str.substring(2, 4));
-                    return new Date(new Date().getFullYear(), m, d);
-                }
-                return null;
-            }
+            if (!match) return null;
             const y = new Date().getFullYear();
             const m = parseInt(match[1]) - 1;
             const d = parseInt(match[2]);
@@ -171,57 +95,30 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
         function parseLab(text) {
             const lab = {};
             const lines = text.split('\n').filter(l => l.trim());
-            const isTable = lines.some(l => l.includes('│') || l.includes('|'));
+            const regex = /(\d+(?:\.\d+)?)\s*.*?\s*\(?([\d\.\/-]+(?:\s+\d+:\d+)?)\)?/g;
             
-            if (isTable) {
-                let headers = [], indices = [];
-                const headerIdx = lines.findIndex(l => /\d{3,4}/.test(l) && (l.includes('│')||l.includes('|')));
-                if (headerIdx > -1) {
-                    lines[headerIdx].split(/[│|]/).forEach((s, i) => {
-                        if (/\d{3,4}/.test(s.trim())) { headers.push(parseChartDate(s.trim())); indices.push(i); }
-                    });
-                    for (let i = headerIdx + 1; i < lines.length; i++) {
-                        const parts = lines[i].split(/[│|]/);
-                        const name = (parts[0]||parts[1]||"").trim();
-                        if (!name || name.includes('項目') || name.includes('單位')) continue;
-                        const key = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                        if (!lab[key]) lab[key] = { label: name, data: [] };
-                        indices.forEach((colIdx, k) => {
-                            const valStr = (parts[colIdx]||"").trim();
-                            if(valStr) {
-                                const val = parseFloat(valStr);
-                                if (!isNaN(val)) lab[key].data.push({ x: headers[k], y: val });
-                            }
-                        });
-                    }
+            lines.forEach(l => {
+                if (!l.includes(':') && !l.includes('：')) return;
+                const parts = l.split(/[:：]/);
+                const name = parts[0].trim();
+                const key = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (!lab[key]) lab[key] = { label: name, data: [] };
+                let m; while ((m = regex.exec(parts[1])) !== null) {
+                    const d = parseChartDate(m[2]);
+                    if(d) lab[key].data.push({ x: d, y: parseFloat(m[1]) });
                 }
-            } else {
-                const regex = /(\d+(?:\.\d+)?)\s*.*?\s*\(?([\d\.\/-]+(?:\s+\d+:\d+)?)\)?/g;
-                lines.forEach(l => {
-                    if (!l.includes(':') && !l.includes('：')) return;
-                    const parts = l.split(/[:：]/);
-                    const name = parts[0].trim();
-                    const key = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                    if (!lab[key]) lab[key] = { label: name, data: [] };
-                    let m; while ((m = regex.exec(parts[1])) !== null) {
-                        const d = parseChartDate(m[2]);
-                        if(d) lab[key].data.push({ x: d, y: parseFloat(m[1]) });
-                    }
-                });
-            }
+            });
 
-            // 同日數據處理：取平均與標準差 (SD)
             Object.keys(lab).forEach(key => {
                 const dataPoints = lab[key].data;
                 const dailyGroups = {};
                 dataPoints.forEach(pt => {
                     const d = new Date(pt.x);
-                    d.setHours(0, 0, 0, 0); // 歸一化至當日凌晨
+                    d.setHours(0, 0, 0, 0);
                     const timeKey = d.getTime();
                     if (!dailyGroups[timeKey]) dailyGroups[timeKey] = [];
                     dailyGroups[timeKey].push(pt.y);
                 });
-
                 const aggregatedData = [];
                 Object.keys(dailyGroups).forEach(timeKey => {
                     const vals = dailyGroups[timeKey];
@@ -231,27 +128,24 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
                         const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (vals.length - 1);
                         sd = Math.sqrt(variance);
                     }
-                    aggregatedData.push({
-                        x: parseInt(timeKey),
-                        y: mean,
-                        sd: sd,
-                        count: vals.length
-                    });
+                    aggregatedData.push({ x: parseInt(timeKey), y: mean, sd: sd, count: vals.length });
                 });
                 aggregatedData.sort((a, b) => a.x - b.x);
                 lab[key].data = aggregatedData;
             });
-
             return lab;
         }
 
         function parseMed(text) {
             const medsMap = {};
             const colors = Object.values(CHART_COLORS);
+            // 完整涵蓋 MM/DD HH:mm
             const dateRegex = /(\d{1,2}\/\d{1,2}(?:\s+\d{1,2}:\d{2})?)/g;
             
             let globalMaxDate = new Date(0);
-            const lines = text.split('\n').filter(l => l.trim());
+            // 過濾掉表頭 (如 "處方 劑量...")
+            const lines = text.split('\n').filter(l => l.trim() && !l.includes('處方') && !l.includes('開始時間'));
+            
             lines.forEach(l => {
                 const found = l.match(dateRegex);
                 if (found) found.forEach(dStr => {
@@ -266,27 +160,49 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
                 const datesFound = l.match(dateRegex);
                 if (datesFound) {
                     let start = parseChartDate(datesFound[0]);
-                    let end = datesFound.length > 1 ? parseChartDate(datesFound[1]) : new Date(globalMaxDate);
-                    const firstDateIdx = l.search(dateRegex);
-                    let rawLabel = l.substring(0, firstDateIdx).trim();
-
-                    // 分離藥物名稱與頻次/劑量 (例如：AMPOLIN 2#Q6H -> AMPOLIN & 2#Q6H)
-                    let dosage = "";
-                    let drugName = rawLabel;
-                    const dosageMatch = rawLabel.match(/(.*?)\s+(\d+(?:\.\d+)?#.*?|Q\d+H.*?|QD.*?|BID.*?|TID.*?|QID.*?|STAT.*?|PRN.*?|QOD.*?|HS.*?)$/i);
+                    // 如果只有一個日期 (沒有結束時間)，自動延伸到整體處方的最晚時間 (代表持續用藥)
+                    let end = datesFound.length > 1 ? parseChartDate(datesFound[1]) : new Date(Math.max(globalMaxDate.getTime(), start.getTime() + 86400000));
                     
-                    if (dosageMatch) {
-                        drugName = dosageMatch[1].trim();
-                        dosage = dosageMatch[2].trim();
+                    const firstDateIdx = l.search(dateRegex);
+                    // 切出日期前面的所有字串，並清除尾部可能的多餘字元
+                    let beforeDateStr = l.substring(0, firstDateIdx).trim();
+
+                    let drugName = beforeDateStr;
+                    let dosageDisplay = "";
+
+                    // 智慧切割器：判斷是否為 HIS 以「多個空白」對齊的表格格式
+                    const cols = beforeDateStr.split(/\s{2,}/);
+                    
+                    if (cols.length >= 4) {
+                        // 表格格式 [藥物名稱, 劑量, 頻率, 用法]
+                        drugName = cols[0].trim();
+                        const dose = cols[1].trim();
+                        const freq = cols[2].trim();
+                        dosageDisplay = `${dose} ${freq}`;
+                    } else if (cols.length === 3) {
+                        // 如果漏了用法欄位
+                        drugName = cols[0].trim();
+                        dosageDisplay = `${cols[1].trim()} ${cols[2].trim()}`;
                     } else {
-                        drugName = rawLabel.split(/\s{2,}/)[0].trim();
+                        // Fallback: 支援手動輸入的傳統格式 "藥名 1#QD"
+                        const dosageMatch = beforeDateStr.match(/(.*?)\s+(\d+(?:\.\d+)?\s*(?:#|)\s*(?:Q\d+H|QD|BID|TID|QID|STAT|PRN|QOD|HS).*)$/i);
+                        if (dosageMatch) {
+                            drugName = dosageMatch[1].trim();
+                            dosageDisplay = dosageMatch[2].trim();
+                        } else {
+                            const fallbackMatch = beforeDateStr.match(/(.*?)\s+(Q\d+H|QD|BID|TID|QID|STAT|PRN|QOD|HS)/i);
+                            if(fallbackMatch) {
+                                drugName = fallbackMatch[1].trim();
+                                dosageDisplay = fallbackMatch[2].trim();
+                            }
+                        }
                     }
 
                     if (start && end) {
                         if (!medsMap[drugName]) {
                             medsMap[drugName] = { segments: [], color: colors[cIdx++ % colors.length] };
                         }
-                        medsMap[drugName].segments.push({ start: start.getTime(), end: end.getTime(), dosage: dosage });
+                        medsMap[drugName].segments.push({ start: start.getTime(), end: end.getTime(), dosage: dosageDisplay });
                     }
                 }
             });
@@ -300,37 +216,18 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
             
             const labText = document.getElementById('labDataInput').value;
             const medText = document.getElementById('medDataInput').value;
-            
-            if (!labText && !medText) {
-                document.getElementById('chartsOutput').innerHTML = `<div id="emptyState" class="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 rounded-xl p-10 min-h-[400px]"><p class="text-lg">圖表預覽區域</p></div>`;
-                return;
-            }
+            if (!labText && !medText) return;
 
             if (labText) {
                 const labData = parseLab(labText);
-                const processed = new Set(); // 核心：追蹤已分類的項目，避免重複
-                
-                // 智慧字串匹配：精確比對，或當目標字眼大於等於3字元時允許包含 (例如 POTASSIUM 包含於 KCL_POTASSIUM)
-                const matchKey = (k, gk) => {
-                    if (k === gk) return true;
-                    if (gk.length >= 3 && k.includes(gk)) return true;
-                    return false;
-                };
+                const processed = new Set();
+                const matchKey = (k, gk) => { if (k === gk) return true; if (gk.length >= 3 && k.includes(gk)) return true; return false; };
 
                 LAB_GROUPS.forEach(g => {
-                    const keys = Object.keys(labData).filter(k => 
-                        g.keys.some(gk => matchKey(k, gk)) && 
-                        labData[k].data.length > 0 && 
-                        !processed.has(k)
-                    );
-                    
-                    if (keys.length > 0) {
-                        keys.forEach(k => processed.add(k)); // 綁定後加入已處理清單，達成互斥
-                        createLabChart(g.name, keys, labData, g);
-                    }
+                    const keys = Object.keys(labData).filter(k => g.keys.some(gk => matchKey(k, gk)) && labData[k].data.length > 0 && !processed.has(k));
+                    if (keys.length > 0) { keys.forEach(k => processed.add(k)); createLabChart(g.name, keys, labData, g); }
                 });
 
-                // 將未被上述嚴格規則抓到的其他數據，獨立成單一圖表
                 Object.keys(labData).forEach(key => {
                     if (!processed.has(key) && labData[key].data.length > 1) {
                         createLabChart(labData[key].label, [key], labData, { colors: [CHART_COLORS.gray], type: 'normal' });
@@ -344,7 +241,7 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
             }
         }
 
-        // 自定義 Plugin：繪製標準差 Error Bars
+        // 誤差線 (Error Bar) 外掛
         const drawErrorBarsPlugin = {
             id: 'errorBars',
             afterDatasetsDraw(chart) {
@@ -360,7 +257,6 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
                                 
                                 const yTopValue = dataPoint.y + dataPoint.sd;
                                 const yBottomValue = dataPoint.y - dataPoint.sd;
-                                
                                 const yTop = yAxis.getPixelForValue(yTopValue);
                                 const yBottom = yAxis.getPixelForValue(yBottomValue);
 
@@ -454,22 +350,19 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
 
             labels.forEach((drugName) => {
                  medsMap[drugName].segments.forEach(seg => {
-                     allData.push({
-                         x: [seg.start, seg.end],
-                         y: drugName,
-                         dosage: seg.dosage
-                     });
+                     allData.push({ x: [seg.start, seg.end], y: drugName, dosage: seg.dosage });
                      backgroundColors.push(medsMap[drugName].color);
                      if (seg.start < minDate) minDate = seg.start;
                      if (seg.end > maxDate) maxDate = seg.end;
                  });
             });
 
-            // 自定義 Plugin：將頻次與劑量文字畫在甘特圖內部
             const drawDosagePlugin = {
                 id: 'drawDosage',
                 afterDatasetsDraw(chart) {
                     const ctx = chart.ctx;
+                    const drawnLabels = []; 
+
                     chart.data.datasets.forEach((dataset, i) => {
                         const meta = chart.getDatasetMeta(i);
                         meta.data.forEach((bar, index) => {
@@ -481,19 +374,29 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
                                 ctx.textAlign = 'left';
                                 ctx.textBaseline = 'middle';
                                 
-                                const startX = Math.min(bar.base, bar.x);
-                                const width = Math.abs(bar.base - bar.x);
+                                let startX = Math.min(bar.base, bar.x) + 6;
+                                let yPos = bar.y + 1;
                                 
+                                const isOverlap = drawnLabels.some(pos => Math.abs(pos.y - yPos) < 5 && Math.abs(pos.startX - startX) < 40);
+                                if (isOverlap) {
+                                    startX += 45; 
+                                    yPos += 10;   
+                                    ctx.fillStyle = '#fffae6';
+                                }
+
+                                drawnLabels.push({y: bar.y, startX: startX});
+                                
+                                const width = Math.abs(bar.base - bar.x);
                                 ctx.beginPath();
-                                ctx.rect(startX, bar.y - bar.height/2, width, bar.height);
+                                ctx.rect(Math.min(bar.base, bar.x), bar.y - bar.height/2, width, bar.height);
                                 ctx.clip();
                                 
-                                ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                                ctx.shadowColor = 'rgba(0,0,0,0.6)';
                                 ctx.shadowBlur = 3;
                                 ctx.shadowOffsetX = 1;
                                 ctx.shadowOffsetY = 1;
                                 
-                                ctx.fillText(dataObj.dosage, startX + 6, bar.y + 1);
+                                ctx.fillText(dataObj.dosage, startX, yPos);
                                 ctx.restore();
                             }
                         });
@@ -503,33 +406,13 @@ KCL_POTASSIUM 2#QD 10/26 10/27"></textarea>
 
             activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), {
                 type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: allData,
-                        backgroundColor: backgroundColors,
-                        maxBarThickness: 30,
-                        barPercentage: 0.8,
-                        borderRadius: 4
-                    }]
-                },
+                data: { labels: labels, datasets: [{ data: allData, backgroundColor: backgroundColors, maxBarThickness: 30, barPercentage: 0.8, borderRadius: 4 }] },
                 plugins: [drawDosagePlugin],
                 options: { 
-                    indexAxis: 'y', 
-                    maintainAspectRatio: false, 
-                    plugins: { 
-                        legend: { display: false } 
-                    }, 
+                    indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } }, 
                     scales: { 
-                        x: { 
-                            type: 'time', 
-                            min: minDate - 86400000, 
-                            max: maxDate + 86400000, 
-                            time: { unit: 'day', displayFormats: { day: 'MM/dd' } } 
-                        }, 
-                        y: { 
-                            ticks: { autoSkip: false, font: { weight: 'bold' } } 
-                        } 
+                        x: { type: 'time', min: minDate - 86400000, max: maxDate + 86400000, time: { unit: 'day', displayFormats: { day: 'MM/dd HH:mm' } } }, 
+                        y: { ticks: { autoSkip: false, font: { weight: 'bold' } } } 
                     } 
                 }
             }));
