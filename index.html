@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療數據智慧製圖工具 (Standalone v21.4.3)</title>
+    <title>醫療數據智慧製圖工具 (Standalone v22.2.0)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -22,7 +22,6 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        /* 甘特圖滾動容器：固定行距且防止縱軸拉長 */
         .gantt-scroll-container {
             width: 100%;
             overflow-y: auto;
@@ -73,7 +72,7 @@
         <header class="mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">醫療數據智慧製圖工具</h1>
-                <p class="text-gray-500 mt-1">支援原始表格解析・自動分群趨勢圖・動態用藥甘特圖</p>
+                <p class="text-gray-500 mt-1">支援原始表格解析・自動分群趨勢圖・動態用藥甘特圖・誤差線繪製</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <button onclick="clearAll()" class="text-sm text-red-500 hover:text-red-700 font-medium underline">清空所有內容</button>
@@ -92,14 +91,14 @@
                     <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
                         <strong>支援格式：</strong><br>
                         1. 原始表格：含 <code>│</code> 或 <code>|</code> 的直式/橫式表格<br>
-                        2. 文字模式：<code>ALT: 40(10/1), 55(10/2)</code>
+                        2. 文字模式：<code>ALT: 40(10/1), 55(10/2)</code><br>
+                        * <strong>同日多筆數據將自動計算平均值，並繪製標準差 (Error Bar)</strong>。
                     </div>
                     <textarea id="labDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none" 
                     placeholder="在此貼上 Lab 數據...
-範例：
-│項目    │1130│1201│
-│ALT     │    │11  │
-│WBC     │5.6 │9.8 │"></textarea>
+範例：(同日多筆將繪製 Error Bar)
+GLUCOSE: 120(10/1 08:00), 180(10/1 12:00), 110(10/1 18:00)
+GLUCOSE: 105(10/2)"></textarea>
                 </div>
 
                 <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500">
@@ -109,14 +108,13 @@
                     </label>
                     <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
                         <strong>支援格式：</strong><br>
-                        1. 原始清單：<code>Vanco 1g Q12H ... 12/01 12/05</code><br>
-                        2. 簡易模式：<code>Teiyu (11/28-12/05)</code>
+                        同品項若有不同劑量/頻次（如 <code>1#Q6H</code>），將自動繪製於同一行，並標註用法於條狀圖內。
                     </div>
                     <textarea id="medDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-shadow outline-none" 
                     placeholder="在此貼上用藥清單...
 範例：
-Saline 0.9% ... 12/01 12/05
-Tazocin 4.5g Q8H ... 12/02"></textarea>
+AMPOLIN INJ 500 MG 2#Q6H 10/22 10/24
+AMPOLIN INJ 500 MG 1#Q6H 10/24 10/27"></textarea>
                 </div>
             </div>
 
@@ -137,12 +135,16 @@ Tazocin 4.5g Q8H ... 12/02"></textarea>
     <script>
         const CHART_COLORS = { orange: 'rgb(249, 115, 22)', blue: 'rgb(59, 130, 246)', purple: 'rgb(168, 85, 247)', red: 'rgb(239, 68, 68)', teal: 'rgb(20, 184, 166)', gray: 'rgb(107, 114, 128)' };
 
+        // 定義的嚴謹指標群組 (互斥機制與新增類別)
         const LAB_GROUPS = [
             { name: '肝功能 (Liver)', keys: ['AST', 'GOT', 'ALT', 'GPT'], colors: [CHART_COLORS.orange, CHART_COLORS.red], type: 'normal' },
             { name: '發炎指標 (Infection)', keys: ['WBC', 'CRP', 'PCT', 'NEUTROPHIL', 'SEG'], colors: [CHART_COLORS.blue, CHART_COLORS.purple, CHART_COLORS.teal], type: 'dual', leftKeys: ['WBC'], rightKeys: ['CRP', 'PCT'] },
-            { name: '腎功能 (Renal)', keys: ['SCR', 'CREA', 'BUN'], colors: [CHART_COLORS.red, CHART_COLORS.blue], type: 'dual', leftKeys: ['BUN'], rightKeys: ['SCR', 'CREA'] },
-            { name: '電解質 (Electrolytes)', keys: ['NA', 'K', 'CL', 'CA', 'MG', 'P'], colors: [CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple], type: 'normal' },
-            { name: '血糖 (Glucose)', keys: ['GLU', 'GLUCOSE', 'AC', 'PC'], colors: [CHART_COLORS.orange], type: 'normal' }
+            { name: '腎功能 (Renal)', keys: ['SCR', 'CREA', 'BUN'], colors: [CHART_COLORS.red, CHART_COLORS.blue, CHART_COLORS.orange], type: 'dual', leftKeys: ['BUN'], rightKeys: ['SCR', 'CREA'] },
+            { name: '電解質 (Electrolytes)', keys: ['NA', 'K', 'CL', 'CA'], colors: [CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.gray], type: 'normal' },
+            { name: '血糖 (Glucose)', keys: ['GLU', 'GLUCOSE', 'AC', 'PC'], colors: [CHART_COLORS.orange], type: 'normal' },
+            { name: '血液 (Blood)', keys: ['EOSINOPHIL', 'LYMPHOCYTE', 'MCH', 'PLT', 'HCT', 'HB', 'MCHC', 'MCV', 'RBC', 'ALBUMIN'], colors: [CHART_COLORS.red, CHART_COLORS.blue, CHART_COLORS.gray, CHART_COLORS.teal, CHART_COLORS.orange, CHART_COLORS.purple], type: 'normal' },
+            { name: '心臟指標 (Cardiac)', keys: ['PROBNP', 'TROPONIN', 'TROPONINI'], colors: [CHART_COLORS.red, CHART_COLORS.blue], type: 'normal' },
+            { name: '凝血指標 (Coagulation)', keys: ['APTT', 'INR'], colors: [CHART_COLORS.purple, CHART_COLORS.teal], type: 'normal' }
         ];
 
         let activeCharts = [];
@@ -170,6 +172,7 @@ Tazocin 4.5g Q8H ... 12/02"></textarea>
             const lab = {};
             const lines = text.split('\n').filter(l => l.trim());
             const isTable = lines.some(l => l.includes('│') || l.includes('|'));
+            
             if (isTable) {
                 let headers = [], indices = [];
                 const headerIdx = lines.findIndex(l => /\d{3,4}/.test(l) && (l.includes('│')||l.includes('|')));
@@ -206,16 +209,49 @@ Tazocin 4.5g Q8H ... 12/02"></textarea>
                     }
                 });
             }
+
+            // 同日數據：取平均與標準差
+            Object.keys(lab).forEach(key => {
+                const dataPoints = lab[key].data;
+                const dailyGroups = {};
+                dataPoints.forEach(pt => {
+                    const d = new Date(pt.x);
+                    d.setHours(0, 0, 0, 0); // 將時間歸一化至當日凌晨
+                    const timeKey = d.getTime();
+                    if (!dailyGroups[timeKey]) dailyGroups[timeKey] = [];
+                    dailyGroups[timeKey].push(pt.y);
+                });
+
+                const aggregatedData = [];
+                Object.keys(dailyGroups).forEach(timeKey => {
+                    const vals = dailyGroups[timeKey];
+                    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+                    let sd = 0;
+                    if (vals.length > 1) {
+                        const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (vals.length - 1);
+                        sd = Math.sqrt(variance);
+                    }
+                    aggregatedData.push({
+                        x: parseInt(timeKey),
+                        y: mean,
+                        sd: sd,
+                        count: vals.length
+                    });
+                });
+                aggregatedData.sort((a, b) => a.x - b.x);
+                lab[key].data = aggregatedData;
+            });
+
             return lab;
         }
 
         function parseMed(text) {
-            const meds = { labels: [], data: [], colors: [] };
-            const lines = text.split('\n').filter(l => l.trim());
+            const medsMap = {};
             const colors = Object.values(CHART_COLORS);
             const dateRegex = /(\d{1,2}\/\d{1,2}(?:\s+\d{1,2}:\d{2})?)/g;
             
             let globalMaxDate = new Date(0);
+            const lines = text.split('\n').filter(l => l.trim());
             lines.forEach(l => {
                 const found = l.match(dateRegex);
                 if (found) found.forEach(dStr => {
@@ -232,75 +268,266 @@ Tazocin 4.5g Q8H ... 12/02"></textarea>
                     let start = parseChartDate(datesFound[0]);
                     let end = datesFound.length > 1 ? parseChartDate(datesFound[1]) : new Date(globalMaxDate);
                     const firstDateIdx = l.search(dateRegex);
-                    let label = l.substring(0, firstDateIdx).trim().split(/\s{2,}/)[0];
+                    let rawLabel = l.substring(0, firstDateIdx).trim();
+
+                    // 分離藥物名稱與頻次/劑量
+                    let dosage = "";
+                    let drugName = rawLabel;
+                    const dosageMatch = rawLabel.match(/(.*?)\s+(\d+(?:\.\d+)?#.*|Q\d+H|QD|BID|TID|QID|STAT|PRN|QOD|HS)\s*$/i);
+                    
+                    if (dosageMatch) {
+                        drugName = dosageMatch[1].trim();
+                        dosage = dosageMatch[2].trim();
+                    } else {
+                        drugName = rawLabel.split(/\s{2,}/)[0].trim();
+                    }
 
                     if (start && end) {
-                        meds.labels.push(label);
-                        meds.data.push([start.getTime(), end.getTime()]);
-                        meds.colors.push(colors[cIdx++ % colors.length]);
+                        if (!medsMap[drugName]) {
+                            medsMap[drugName] = { segments: [], color: colors[cIdx++ % colors.length] };
+                        }
+                        medsMap[drugName].segments.push({ start: start.getTime(), end: end.getTime(), dosage: dosage });
                     }
                 }
             });
-            return meds;
+            return medsMap;
         }
 
         function renderAll() {
             document.getElementById('chartsOutput').innerHTML = '';
             activeCharts.forEach(c => c.destroy());
             activeCharts = [];
+            
             const labText = document.getElementById('labDataInput').value;
             const medText = document.getElementById('medDataInput').value;
+            
             if (!labText && !medText) {
                 document.getElementById('chartsOutput').innerHTML = `<div id="emptyState" class="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-300 rounded-xl p-10 min-h-[400px]"><p class="text-lg">圖表預覽區域</p></div>`;
                 return;
             }
+
             if (labText) {
                 const labData = parseLab(labText);
                 const processed = new Set();
+                
+                const matchKey = (k, gk) => k === gk || k.startsWith(gk + '_');
+
                 LAB_GROUPS.forEach(g => {
-                    const keys = Object.keys(labData).filter(k => g.keys.some(gk => k.includes(gk)) && labData[k].data.length > 0);
-                    if (keys.length > 0) createLabChart(g.name, keys, labData, g, processed);
+                    const keys = Object.keys(labData).filter(k => 
+                        g.keys.some(gk => matchKey(k, gk)) && 
+                        labData[k].data.length > 0 && 
+                        !processed.has(k)
+                    );
+                    
+                    if (keys.length > 0) {
+                        keys.forEach(k => processed.add(k)); 
+                        createLabChart(g.name, keys, labData, g);
+                    }
                 });
+
                 Object.keys(labData).forEach(key => {
-                    if (!processed.has(key) && labData[key].data.length > 1) createLabChart(labData[key].label, [key], labData, { colors: [CHART_COLORS.gray], type: 'normal' }, processed);
+                    if (!processed.has(key) && labData[key].data.length > 1) {
+                        createLabChart(labData[key].label, [key], labData, { colors: [CHART_COLORS.gray], type: 'normal' });
+                    }
                 });
             }
+
             if (medText) {
-                const medData = parseMed(medText);
-                if (medData.data.length > 0) createGanttChart(medData);
+                const medsMap = parseMed(medText);
+                createGanttChart(medsMap);
             }
         }
 
-        function createLabChart(title, keys, labData, groupConfig, processedSet) {
+        // 自定義 Plugin：為折線圖繪製標準差 Error Bars
+        const drawErrorBarsPlugin = {
+            id: 'errorBars',
+            afterDatasetsDraw(chart) {
+                const ctx = chart.ctx;
+                chart.data.datasets.forEach((dataset, i) => {
+                    const meta = chart.getDatasetMeta(i);
+                    if (!meta.hidden) {
+                        meta.data.forEach((element, index) => {
+                            const dataPoint = dataset.data[index];
+                            if (dataPoint.sd && dataPoint.sd > 0) {
+                                const yAxis = chart.scales[meta.yAxisID];
+                                const x = element.x;
+                                // 限制誤差線不超出 Y 軸的最大/最小值視覺範圍
+                                const yTopValue = dataPoint.y + dataPoint.sd;
+                                const yBottomValue = dataPoint.y - dataPoint.sd;
+                                
+                                const yTop = yAxis.getPixelForValue(yTopValue);
+                                const yBottom = yAxis.getPixelForValue(yBottomValue);
+
+                                ctx.save();
+                                ctx.beginPath();
+                                ctx.moveTo(x, yTop);
+                                ctx.lineTo(x, yBottom);
+                                // 頂部橫線
+                                ctx.moveTo(x - 4, yTop);
+                                ctx.lineTo(x + 4, yTop);
+                                // 底部橫線
+                                ctx.moveTo(x - 4, yBottom);
+                                ctx.lineTo(x + 4, yBottom);
+                                
+                                ctx.strokeStyle = dataset.borderColor;
+                                ctx.lineWidth = 1.5;
+                                ctx.stroke();
+                                ctx.restore();
+                            }
+                        });
+                    }
+                });
+            }
+        };
+
+        function createLabChart(title, keys, labData, groupConfig) {
             const wrapper = document.createElement('div');
             wrapper.className = 'chart-wrapper';
             const canvasId = `chart_${Math.random().toString(36).substr(2, 9)}`;
             wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">${title}</h3><button class="chart-btn" onclick="downloadChart('${canvasId}', '${title}.png')">📥 下載</button></div><canvas id="${canvasId}" style="max-height:300px;"></canvas>`;
             document.getElementById('chartsOutput').appendChild(wrapper);
+            
             const datasets = keys.map((k, i) => {
-                processedSet.add(k);
-                const d = labData[k]; d.data.sort((a,b) => a.x - b.x);
-                return { label: d.label, data: d.data, borderColor: groupConfig.colors[i % groupConfig.colors.length], backgroundColor: groupConfig.colors[i % groupConfig.colors.length], yAxisID: (groupConfig.type === 'dual' && groupConfig.rightKeys?.some(rk => k.includes(rk))) ? 'y1' : 'y', tension: 0.3, pointRadius: 4 };
+                const d = labData[k]; 
+                return { 
+                    label: d.label, 
+                    data: d.data, 
+                    borderColor: groupConfig.colors[i % groupConfig.colors.length], 
+                    backgroundColor: groupConfig.colors[i % groupConfig.colors.length], 
+                    yAxisID: (groupConfig.type === 'dual' && groupConfig.rightKeys?.some(rk => k.includes(rk))) ? 'y1' : 'y', 
+                    tension: 0.3, 
+                    pointRadius: 4 
+                };
             });
-            activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), { type: 'line', data: { datasets }, options: { scales: { x: { type: 'time', time: { unit: 'day' } }, y: { position: 'left' }, ...(groupConfig.type === 'dual' ? { y1: { position: 'right', grid: { drawOnChartArea: false } } } : {}) } } }));
+
+            activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), { 
+                type: 'line', 
+                data: { datasets }, 
+                plugins: [drawErrorBarsPlugin], // 注入誤差線外掛
+                options: { 
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const pt = context.raw;
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    label += pt.y.toFixed(2);
+                                    if (pt.count > 1) {
+                                        label += ` (均值) ± ${pt.sd.toFixed(2)} SD (n=${pt.count})`;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: { 
+                        x: { type: 'time', time: { unit: 'day' } }, 
+                        y: { position: 'left' }, 
+                        ...(groupConfig.type === 'dual' ? { y1: { position: 'right', grid: { drawOnChartArea: false } } } : {}) 
+                    } 
+                } 
+            }));
         }
 
-        function createGanttChart(medData) {
+        function createGanttChart(medsMap) {
+            const labels = Object.keys(medsMap);
+            if (labels.length === 0) return;
+
             const wrapper = document.createElement('div');
             wrapper.className = 'chart-wrapper';
             const canvasId = `chart_gantt_${Math.random().toString(36).substr(2, 9)}`;
-            const rowHeight = 40;
-            const chartHeight = (medData.labels.length * rowHeight) + 60;
+            const rowHeight = 45; 
+            const chartHeight = (labels.length * rowHeight) + 60;
+            
             wrapper.innerHTML = `<div class="chart-toolbar"><h3 class="chart-title">用藥甘特圖</h3><button class="chart-btn" onclick="downloadChart('${canvasId}', 'gantt.png')">📥 下載</button></div><div class="gantt-scroll-container"><canvas id="${canvasId}" style="height: ${chartHeight}px; width: 100%;"></canvas></div>`;
             document.getElementById('chartsOutput').appendChild(wrapper);
-            const allDates = medData.data.flat();
+
+            const allData = [];
+            const backgroundColors = [];
+            let minDate = Infinity;
+            let maxDate = -Infinity;
+
+            labels.forEach((drugName) => {
+                 medsMap[drugName].segments.forEach(seg => {
+                     allData.push({
+                         x: [seg.start, seg.end],
+                         y: drugName,
+                         dosage: seg.dosage
+                     });
+                     backgroundColors.push(medsMap[drugName].color);
+                     if (seg.start < minDate) minDate = seg.start;
+                     if (seg.end > maxDate) maxDate = seg.end;
+                 });
+            });
+
+            // 自定義 Plugin：將頻次與劑量文字畫在條狀圖上
+            const drawDosagePlugin = {
+                id: 'drawDosage',
+                afterDatasetsDraw(chart) {
+                    const ctx = chart.ctx;
+                    chart.data.datasets.forEach((dataset, i) => {
+                        const meta = chart.getDatasetMeta(i);
+                        meta.data.forEach((bar, index) => {
+                            const dataObj = dataset.data[index];
+                            if (dataObj.dosage) {
+                                ctx.save();
+                                ctx.fillStyle = '#ffffff'; 
+                                ctx.font = 'bold 12px Inter, sans-serif';
+                                ctx.textAlign = 'left';
+                                ctx.textBaseline = 'middle';
+                                
+                                const startX = Math.min(bar.base, bar.x);
+                                const width = Math.abs(bar.base - bar.x);
+                                
+                                ctx.beginPath();
+                                ctx.rect(startX, bar.y - bar.height/2, width, bar.height);
+                                ctx.clip();
+                                
+                                ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                                ctx.shadowBlur = 3;
+                                ctx.shadowOffsetX = 1;
+                                ctx.shadowOffsetY = 1;
+                                
+                                ctx.fillText(dataObj.dosage, startX + 6, bar.y + 1);
+                                ctx.restore();
+                            }
+                        });
+                    });
+                }
+            };
+
             activeCharts.push(new Chart(document.getElementById(canvasId).getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: medData.labels,
-                    datasets: [{ data: medData.labels.map((l, i) => ({ x: [medData.data[i][0], medData.data[i][1]], y: l })), backgroundColor: medData.colors, maxBarThickness: 25, barPercentage: 0.8, borderRadius: 4 }]
+                    labels: labels,
+                    datasets: [{
+                        data: allData,
+                        backgroundColor: backgroundColors,
+                        maxBarThickness: 30,
+                        barPercentage: 0.8,
+                        borderRadius: 4
+                    }]
                 },
-                options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { type: 'time', min: Math.min(...allDates)-86400000, max: Math.max(...allDates)+86400000, time: { unit: 'day', displayFormats: { day: 'MM/dd' } } }, y: { ticks: { autoSkip: false, font: { weight: 'bold' } } } } }
+                plugins: [drawDosagePlugin],
+                options: { 
+                    indexAxis: 'y', 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false } 
+                    }, 
+                    scales: { 
+                        x: { 
+                            type: 'time', 
+                            min: minDate - 86400000, 
+                            max: maxDate + 86400000, 
+                            time: { unit: 'day', displayFormats: { day: 'MM/dd' } } 
+                        }, 
+                        y: { 
+                            ticks: { autoSkip: false, font: { weight: 'bold' } } 
+                        } 
+                    } 
+                }
             }));
         }
 
