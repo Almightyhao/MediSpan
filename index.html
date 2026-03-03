@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>醫療數據智慧製圖工具 (Standalone v22.5.0)</title>
+    <title>醫療數據智慧製圖工具 (Standalone v22.6.0)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -26,7 +26,7 @@
         <header class="mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center">
             <div>
                 <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">醫療數據智慧製圖工具</h1>
-                <p class="text-gray-500 mt-1">支援 HIS 處方表格直貼・Hb/CRP精準綁定・SD誤差線・動態用藥甘特圖</p>
+                <p class="text-gray-500 mt-1">支援 HIS 處方表格直貼・帶單位檢驗值解析・SD誤差線・動態甘特圖</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <button onclick="clearAll()" class="text-sm text-red-500 hover:text-red-700 font-medium underline">清空所有內容</button>
@@ -38,8 +38,8 @@
                 <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-blue-500">
                     <label class="block text-lg font-bold text-gray-700 mb-2 flex justify-between">1. 檢驗數據 (Lab Data)</label>
                     <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
-                        <strong>自動綁定群組：</strong>含 Hb (血液), CRP (發炎), Na/K (電解質) 等。<br>
-                        * 同日多筆數據將自動計算平均值並繪製標準差 (Error Bar)。
+                        <strong>自動綁定群組：</strong>含 Hb (g/dL), CRP, Na/K 等指標。<br>
+                        * 支援包含單位的複製貼上，同日多筆將繪製標準差 (Error Bar)。
                     </div>
                     <textarea id="labDataInput" rows="12" class="nowrap w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="在此貼上 Lab 數據..."></textarea>
                 </div>
@@ -81,7 +81,6 @@
 
         function parseChartDate(str) {
             if (!str) return null;
-            // 完美解析 MM/DD 或 MM/DD HH:mm 格式
             const match = str.match(/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
             if (!match) return null;
             const y = new Date().getFullYear();
@@ -139,11 +138,9 @@
         function parseMed(text) {
             const medsMap = {};
             const colors = Object.values(CHART_COLORS);
-            // 完整涵蓋 MM/DD HH:mm
             const dateRegex = /(\d{1,2}\/\d{1,2}(?:\s+\d{1,2}:\d{2})?)/g;
             
             let globalMaxDate = new Date(0);
-            // 過濾掉表頭 (如 "處方 劑量...")
             const lines = text.split('\n').filter(l => l.trim() && !l.includes('處方') && !l.includes('開始時間'));
             
             lines.forEach(l => {
@@ -160,31 +157,22 @@
                 const datesFound = l.match(dateRegex);
                 if (datesFound) {
                     let start = parseChartDate(datesFound[0]);
-                    // 如果只有一個日期 (沒有結束時間)，自動延伸到整體處方的最晚時間 (代表持續用藥)
                     let end = datesFound.length > 1 ? parseChartDate(datesFound[1]) : new Date(Math.max(globalMaxDate.getTime(), start.getTime() + 86400000));
                     
                     const firstDateIdx = l.search(dateRegex);
-                    // 切出日期前面的所有字串，並清除尾部可能的多餘字元
                     let beforeDateStr = l.substring(0, firstDateIdx).trim();
 
                     let drugName = beforeDateStr;
                     let dosageDisplay = "";
-
-                    // 智慧切割器：判斷是否為 HIS 以「多個空白」對齊的表格格式
                     const cols = beforeDateStr.split(/\s{2,}/);
                     
                     if (cols.length >= 4) {
-                        // 表格格式 [藥物名稱, 劑量, 頻率, 用法]
                         drugName = cols[0].trim();
-                        const dose = cols[1].trim();
-                        const freq = cols[2].trim();
-                        dosageDisplay = `${dose} ${freq}`;
+                        dosageDisplay = `${cols[1].trim()} ${cols[2].trim()}`;
                     } else if (cols.length === 3) {
-                        // 如果漏了用法欄位
                         drugName = cols[0].trim();
                         dosageDisplay = `${cols[1].trim()} ${cols[2].trim()}`;
                     } else {
-                        // Fallback: 支援手動輸入的傳統格式 "藥名 1#QD"
                         const dosageMatch = beforeDateStr.match(/(.*?)\s+(\d+(?:\.\d+)?\s*(?:#|)\s*(?:Q\d+H|QD|BID|TID|QID|STAT|PRN|QOD|HS).*)$/i);
                         if (dosageMatch) {
                             drugName = dosageMatch[1].trim();
@@ -221,7 +209,18 @@
             if (labText) {
                 const labData = parseLab(labText);
                 const processed = new Set();
-                const matchKey = (k, gk) => { if (k === gk) return true; if (gk.length >= 3 && k.includes(gk)) return true; return false; };
+                
+                // 升級版智慧匹配：完美包容「單位字尾」，如 Hb (g/dL) -> HBGDL
+                const matchKey = (k, gk) => { 
+                    if (k === gk) return true; 
+                    if (gk.length >= 3 && k.includes(gk)) return true; 
+                    
+                    // 針對 1~2 字母縮寫，允許後面跟隨常見單位
+                    const unitSuffixes = ['GDL', 'MGDL', 'MEQL', 'MEQ', 'UL', 'MMOL', 'MMOLL', 'U', 'IU', 'SEC'];
+                    if (unitSuffixes.some(u => k === gk + u)) return true;
+                    
+                    return false; 
+                };
 
                 LAB_GROUPS.forEach(g => {
                     const keys = Object.keys(labData).filter(k => g.keys.some(gk => matchKey(k, gk)) && labData[k].data.length > 0 && !processed.has(k));
@@ -241,7 +240,6 @@
             }
         }
 
-        // 誤差線 (Error Bar) 外掛
         const drawErrorBarsPlugin = {
             id: 'errorBars',
             afterDatasetsDraw(chart) {
