@@ -29,11 +29,11 @@ NT-pro BNP (pg/mL): 3182 (2/20), 4582 (2/20), 13335 (2/21), 16856 (2/22), 8053 (
 ### 2. 用藥紀錄 (Medication) 區塊範例
 > 複製以下文字並貼入工具的「2. 用藥紀錄」：
 ```text
-處      方                       劑量 頻率     用法   開始時間             結束時間
+處      方                 劑量 頻率 用法   開始時間                結束時間
 ALBUTEIN INJ 25% 50 ML     50 Q12H  IV    2026/2/21 下午 01:58:00 2026/2/25 下午 01:58:00
-NORVASC TAB 5 MG           1 QDPRN PO    2026/2/21 上午 08:54:58
+NORVASC TAB 5 MG           1  QDPRN PO    2026/2/21 上午 08:54:58
 VAXCEL HEPARIN SOD. INJ    20 PRN   IVPUM 2026/2/21 上午 05:12:12
-MEROPEM IV INJ 0.25 G      1 Q8H    IVD   2026/2/20 下午 07:10:00 2026/2/26 下午 03:04:00
+MEROPEM IV INJ 0.25 G      1  Q8H   IVD   2026/2/20 下午 07:10:00 2026/2/26 下午 03:04:00
 DORMICUM INJ 5 MG/ML 1 ML  60 PRN   IV    2026/2/20 下午 01:58:00
 ```
 ---
